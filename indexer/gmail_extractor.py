@@ -19,7 +19,11 @@ import email.Header
 # See http://stackoverflow.com/questions/12903893/python-imap-utf-8q-in-subject-string
 def decode_str(str):
     text, encoding = email.Header.decode_header(str)[0]
-    return text
+    if encoding==None:
+        ret = text
+    else:
+        ret = text.decode(encoding)
+    return ret
 
 # make headers into a dictionary:
 def make_header_dict(headers):
