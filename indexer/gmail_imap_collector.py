@@ -314,7 +314,7 @@ class GmailIMAPCollector:
             self.sendProgressMessage(num_total_messages, num_missing_ids)
 
             # Get this batch of mails
-            self.get_batch(batch_uids, extractor, csvWriter)
+            self.process_batch(batch_uids, extractor, csvWriter)
 
             # Calc our stats
             print "\n\nCompleted batch of size: ", num_batch_ids
@@ -385,8 +385,8 @@ class GmailIMAPCollector:
             batch_hdicts.append(hdict)
         return batch_hdicts
 
-    def get_batch(self, batch_uids, extractor, writer):
-
+    # Fetch a batch of UIDs, extract dictionary, and write to CSV
+    def process_batch(self, batch_uids, extractor, writer):
         batch_hdicts = self.fetch_batch(batch_uids)
         for hdict in batch_hdicts:
             try:
@@ -501,4 +501,15 @@ class GmailIMAPCollector:
             print "No results found for message ID"
             return
         uid = data[0]
+        batch_uids = [uid]
+        batch_hdicts = self.fetch_batch(batch_uids)
+        extractor = MessageExtractor()        
+        for hdict in batch_hdicts:
+            try:
+                msgMeta = extractor.extract_imap_hdict(hdict)
+            except:
+                # We'll log relevant exception info in extractor, so keep this brief:
+                print "Unexpected exception while extracting metadata from message"
+            else:
+                print "Extracted meta-data: ", msgMeta
         # To be continued...
