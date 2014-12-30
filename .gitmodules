@@ -1,0 +1,3 @@
+[submodule "indexer/flopsy"]
+	path = indexer/flopsy
+	url = https://github.com/killian/flopsy.git
