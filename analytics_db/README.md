@@ -56,6 +56,19 @@ A fundamental problem with SQL is that lacks the basic mechanisms - procedures, 
 write SQL code directly.  Instead, we use the *template strings* feature of ES6 to compose SQL queries. This enables
 us to use the abstraction mechanisms in JavaScript to achieve basic abstraction and reuse.
 
+## Overview of Scipts
+
+There are a number of top-level scripts to aid in development and testing of queries:
+
+- **gensql.js** - Generate the SQL for a given named query, possibly with additional arguments.
+- **pgtest.js** - Minimal test of connecting to RedShift using postgres driver
+- **pgutils.js** - Utility routines for running a number of queries sequentially using promises. Used by **rebuild_derived_tables.js**
+- **query_test.js** - Runs a couple of test queries and prints the results to the console
+- **rebuild_derived_tables.js** - Rebuilds the materialized tables, such as the correspondent tables
+- **runInvariantChecks.js** - Runs a set of queries to check critical invariants on the RedShift tables
+- **tq.sh** - A small shell script to run a named query and display the results in tabular form in a web browser using the external 
+[sqlview](https://github.com/antonycourtney/sqlview) utility
+
 ### Build the Inbox Queries
 
 Run the following:
