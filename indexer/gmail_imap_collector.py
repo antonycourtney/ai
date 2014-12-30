@@ -134,8 +134,25 @@ def format_interval_spans(spans):
     ret = ",".join(span_strs)
     return ret
 
+# id_str sample: '12 (X-GM-THRID 1154313475038638396 X-GM-MSGID 1154313475038638396 UID 12 BODY[HEADER] {2852}'
+# no apparent ordering on these attributes, so match independently:
+msg_id_matcher = re.compile('X-GM-MSGID (\d+)');
+thr_id_matcher = re.compile('X-GM-THRID (\d+)');
+uid_matcher = re.compile('UID (\d+)');
+
+
 class CollectorException(Exception):
     pass
+
+#
+# Match a RegExp or raise a CollectionException
+#
+def match_re(re,str):
+    match = re.search(str)
+    if match == None:
+        msg = "Failed to match IMAP result: RE: '" + re + "', target: '" + str + "'"
+        raise CollectorException(msg)
+    return match.groups()[0]
 
 class GmailIMAPCollector:
 
@@ -321,8 +338,33 @@ class GmailIMAPCollector:
         # Send a progress message when we finish
         self.sendProgressMessage(num_total_messages, num_missing_ids)
 
-    def get_batch(self, batch_uids, extractor, writer):
+    # given an individual entry in an IMAP fetch result, turn it into a header dictionary:
+    def imap_fetch_to_hdict(self,datum):
+        (id_str,raw_header_str) = datum
 
+        gmail_id_dstr = match_re(msg_id_matcher,id_str)
+        thr_id_dstr = match_re(thr_id_matcher,id_str)
+        uid_dstr = match_re(uid_matcher,id_str)
+    
+        gmail_id_dec = int(gmail_id_dstr)
+        gmail_id = '{0:x}'.format(gmail_id_dec)
+
+        thr_id_dec = int(thr_id_dstr)
+        thr_id = '{0:x}'.format(thr_id_dec)
+
+        uid = int(uid_dstr)
+
+        # try to parse the header:
+        message_header = email.message_from_string(raw_header_str)
+        headers = message_header.items() 
+        hdict = make_header_dict(headers)
+        # Add Gmail message ID and thread ID to dictionary
+        hdict["id"] = gmail_id
+        hdict["threadId"] = thr_id
+        return hdict
+
+    # fetch a batch of messages identified by UIDs from IMAP server:
+    def fetch_batch(self, batch_uids):
         print "starting batch of size ", len(batch_uids)
 
         batch_intervals = find_interval_spans(batch_uids)
@@ -332,52 +374,28 @@ class GmailIMAPCollector:
         if result!="OK":
             raise CollectorException((result,data)) 
 
-        # id_str sample: '12 (X-GM-THRID 1154313475038638396 X-GM-MSGID 1154313475038638396 UID 12 BODY[HEADER] {2852}'
-        # no apparent ordering on these attributes, so match independently:
-        msg_id_matcher = re.compile('X-GM-MSGID (\d+)');
-        thr_id_matcher = re.compile('X-GM-THRID (\d+)');
-        uid_matcher = re.compile('UID (\d+)');
+        # IMAP is just bizarre, and returns actual results interleaved with strings
+        # with a closing paren...
+        def isTuple(x): return type(x)==types.TupleType
+        tuple_data = filter(isTuple, data)
 
-        def match_re(re,str):
-            match = re.search(str)
-            if match == None:
-                msg = "Failed to match IMAP result: RE: '" + re + "', target: '" + str + "'"
-                raise CollectorException(msg)
-            return match.groups()[0]
+        batch_hdicts = []
+        for d in tuple_data:
+            hdict = self.imap_fetch_to_hdict(d)
+            batch_hdicts.append(hdict)
+        return batch_hdicts
 
-        for d in data:
-            # IMAP is just bizarre, and returns actual results interleaved with strings
-            # with a closing paren...
-            if type(d)==types.TupleType:
-                (id_str,raw_header_str) = d
+    def get_batch(self, batch_uids, extractor, writer):
 
-                gmail_id_dstr = match_re(msg_id_matcher,id_str)
-                thr_id_dstr = match_re(thr_id_matcher,id_str)
-                uid_dstr = match_re(uid_matcher,id_str)
-            
-                gmail_id_dec = int(gmail_id_dstr)
-                gmail_id = '{0:x}'.format(gmail_id_dec)
-
-                thr_id_dec = int(thr_id_dstr)
-                thr_id = '{0:x}'.format(thr_id_dec)
-
-                uid = int(uid_dstr)
-
-                # try to parse the header:
-                message_header = email.message_from_string(raw_header_str)
-                headers = message_header.items() 
-                hdict = make_header_dict(headers)
-                # Add Gmail message ID and thread ID to dictionary
-                hdict["id"] = gmail_id
-                hdict["threadId"] = thr_id
-
-                try:
-                    msgMeta = extractor.extract_imap_hdict(hdict)
-                except:
-                    # We'll log relevant exception info in extractor, so keep this brief:
-                    print "Unexpected exception while extracting metadata from message -- ignoring"
-                else:
-                    writer.writeMessage(msgMeta)
+        batch_hdicts = self.fetch_batch(batch_uids)
+        for hdict in batch_hdicts:
+            try:
+                msgMeta = extractor.extract_imap_hdict(hdict)
+            except:
+                # We'll log relevant exception info in extractor, so keep this brief:
+                print "Unexpected exception while extracting metadata from message -- ignoring"
+            else:
+                writer.writeMessage(msgMeta)
 
     #
     # get_gmail_message_id_map
