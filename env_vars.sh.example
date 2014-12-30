@@ -1,0 +1,35 @@
+declare -x AWS_ACCESS_KEY="<access key>"
+declare -x AWS_SECRET_KEY="<secret key>"
+
+declare -x AWS_REDSHIFT_DB="<db name>"
+declare -x AWS_REDSHIFT_INSTANCE="<instance hostname - e.g. foo-redshift.abcxyz.us-east-1.redshift.amazonaws.com>"
+declare -x AWS_REDSHIFT_PORT="<instance port # - e.g. 5439>"
+declare -x AWS_REDSHIFT_USER="<redshift user - e.g. awsuser>"
+declare -x AWS_REDSHIFT_PWD="<redshift password>"
+
+# postgres-style connection string for RedShift:
+declare -x AWS_REDSHIFT_CONN_STRING="postgres://$AWS_REDSHIFT_USER:$AWS_REDSHIFT_PWD@$AWS_REDSHIFT_INSTANCE:$AWS_REDSHIFT_PORT/$AWS_REDSHIFT_DB"
+
+declare -x AWS_S3_BUCKET="<s3 bucket name - e.g. glenmistro-ia-dev-DevID >"
+
+declare -x GOOGLE_CLIENT_ID="<google web app client ID>"
+declare -x GOOGLE_CLIENT_SECRET="<google web app client secret>"
+
+declare -x RAILS_ENV="<desired env - e.g. production or development>"
+declare -x SECRET_KEY_BASE="<secret key for rails cookies - generate one using rake secret>"
+
+declare -x PG_DB="<Postgres db name>"
+declare -x PG_INSTANCE="<Postgres instance hostname - e.g. localhost>"
+declare -x PG_PORT="<Postgres instance port # - e.g. 5432>"
+declare -x PG_USER="<Postgres user - e.g. glenmistro>"
+declare -x PG_PWD="<Postgres password>"
+
+declare -x PG_CONN_STRING="postgres://$PG_USER:$PG_PWD@$PG_INSTANCE:$PG_PORT/$PG_DB"
+
+# For dev / testing: List of the user's email addresses
+# TODO: This should live in our postgres service db
+# Format: comma-separated list of addresses, no real name part or extraneous space
+declare -x TEST_USER_ADDRS="foo@bar.com,foo.baz@gmail.com"
+# And this should come from the user's profile, either G+ or our own, but we don't want to have to load this
+# while developing db queries:
+declare -x TEST_USER_REAL_NAME="Joe Bloggs"

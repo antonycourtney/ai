@@ -1,0 +1,7 @@
+.DS_Store
+*.pyc
+data
+Credentials/*
+build/
+node_modules/
+npm-debug.log

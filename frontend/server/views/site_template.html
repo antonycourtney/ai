@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{title}}</title>
+
+    <!-- Bootstrap stuff -->
+    <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/public/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="/public/css/bootstrap.css" />
+    <style>
+    body {
+        padding-top: 80px;
+        font-size: 12px;
+    }
+
+    .query-panel div {
+      max-height: 400px;
+      overflow: scroll;
+    }    
+    </style>
+  </head>
+  <body>
+    <!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#"><strong>Analytic Inbox</strong></a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="/home">Home</a></li>
+            <li><a href="/correspondents">Correspondents</a></li>
+<!--
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <span class="caret"></span></a>
+              <ul class="dropdown-menu" role="menu">
+                <li><a href="#">Action</a></li>
+                <li><a href="#">Another action</a></li>
+                <li><a href="#">Something else here</a></li>
+                <li class="divider"></li>
+                <li class="dropdown-header">Nav header</li>
+                <li><a href="#">Separated link</a></li>
+                <li><a href="#">One more separated link</a></li>
+              </ul>
+            </li>
+-->
+          </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="/logout">Logout</a></li>
+            <li><a href="/settings">{{real_name}}</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+
+    {{> pageContent}}
+
+<!--
+    <div>
+      <p>Flash messages: </p>
+      <p>{{errorMessages}}</p>
+      <p>{{infoMessages}}</p>
+    </div>
+-->
+    <script src="/public/js/jquery.min.js"></script>
+    <script src="/public/js/bootstrap.min.js"></script>
+    <!-- Google Charts:  TODO: Get rid of this once we are only using d3 charts -->
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>   
+    <script type="text/javascript">
+      google.load("visualization", "1", {packages:["corechart"]});
+    </script> 
+    {{{pageScriptLoad}}}
+  </body>
+</html>
