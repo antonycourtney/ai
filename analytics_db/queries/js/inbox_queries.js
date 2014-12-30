@@ -104,6 +104,30 @@ order by correspondentName,emailAddress`;
  * Code to build up correspondent tables / views
  */
 
+var lastFirstRE = '^([A-Z][a-z]*)\,[ ]?([A-Z][a-z]*)([ ][A-Z][\.]?)?$';
+
+var commaFromRealNames = `
+  SELECT DISTINCT m.fromRealName rnm,
+  regexp_count(rnm,'${lastFirstRE}') as cnt,
+  regexp_replace(rnm,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as rep
+  FROM messages m
+  WHERE strpos(rnm,',') > 0
+  ORDER BY rnm`;
+
+/* real name, email address pairs after normalizing real names with
+ * the lastFirstRE
+ */
+var normFromPairs = `
+  SELECT regexp_replace(m.fromRealName,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as fromRealName,
+          m.fromEmailAddress
+  FROM messages m`;
+
+/* same things, but for recipient name,address pairs: */
+var normRecipPairs = `
+  SELECT regexp_replace(r.recipientRealName,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as recipientRealName,
+          r.recipientEmailAddress
+  FROM recipients r`;
+
 /* 
  * Note that this has only lower case email addresses but mixed case correspondent names.
  * Used solely for finding the 'best' correspondentName for a given email address
@@ -112,7 +136,7 @@ var fromAddressNamePairs = `
   SELECT LOWER(m.fromEmailAddress) AS emailAddress,
           COALESCE(NULLIF(m.fromRealName,''),m.fromEmailAddress) AS correspondentName,
           COUNT(*) AS addrNameMessageCount
-   FROM messages m
+   FROM (${normFromPairs}) m
    WHERE LENGTH(m.fromEmailAddress) > 0
    GROUP BY emailAddress,
             correspondentName`;
@@ -125,7 +149,7 @@ var recipientNamePairs =`
    SELECT LOWER(r.recipientEmailAddress) AS emailAddress,
           COALESCE(NULLIF(r.recipientRealName,''),r.recipientEmailAddress) AS correspondentName,
           COUNT(*) AS addrNameMessageCount
-   FROM recipients r
+   FROM (${normRecipPairs}) r
    WHERE LENGTH(r.recipientEmailAddress) > 0
    GROUP BY emailAddress,
             correspondentName`;
@@ -446,3 +470,5 @@ module.exports.createFromUserMessagesRecips = createFromUserMessagesRecips;
 module.exports.messagesExchangedWithCorrespondentPerDay = messagesExchangedWithCorrespondentPerDay;
 module.exports.messagesExchangedWithCorrespondentPerMonth = messagesExchangedWithCorrespondentPerMonth;
 module.exports.allCorrespondents = allCorrespondents;
+module.exports.commaFromRealNames = commaFromRealNames;
+module.exports.recipientNamePairs = recipientNamePairs;
