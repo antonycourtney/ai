@@ -36,12 +36,12 @@ class CSVWriter:
         # Message storage - may be many of these per tenant in the file system from previous runs
         self.msgsFilePath   = args.outdir + '/' + args.messagesFile + self.tenantifyName() + ".csv"
         self.msgsFile       = open(self.msgsFilePath,'a')
-        self.msgsWriter     = unicodecsv.writer(self.msgsFile)
+        self.msgsWriter     = unicodecsv.writer(self.msgsFile, encoding='utf-8')
         
         # Recipients - may be many of these per tenant in the file system from previous runs
         self.recipsFilePath = args.outdir + '/' + args.recipientsFile + self.tenantifyName() + ".csv"
         self.recipsFile     = open(self.recipsFilePath,'a')
-        self.recipsWriter   = unicodecsv.writer(self.recipsFile)
+        self.recipsWriter   = unicodecsv.writer(self.recipsFile, encoding='utf-8')
         
 
     #

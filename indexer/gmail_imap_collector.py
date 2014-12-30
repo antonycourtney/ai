@@ -497,7 +497,7 @@ class GmailIMAPCollector:
         if result!="OK":
             raise CollectorException((result,data)) 
         print "fetch_one: search result: ", data
-        if len(data) < 1:
+        if (len(data) < 1) or (len(data[0]) < 1):
             print "No results found for message ID"
             return
         uid = data[0]

@@ -7,7 +7,7 @@ CREATE TABLE messages
     received TIMESTAMP,
     fromRealName VARCHAR(128),
     fromEmailAddress VARCHAR(128),
-    subject TEXT,
+    subject VARCHAR(256),
     snippet VARCHAR(512),
     sizeEstimate INTEGER,
     "date" TIMESTAMP,
