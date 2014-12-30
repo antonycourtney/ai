@@ -462,3 +462,19 @@ class GmailIMAPCollector:
             else:
                 raise CollectorException("No amqp_connection when sending progress message")
 
+    def fetch_one(self,messageId):
+        print "fetching message: ", messageId
+        mid_int = int(messageId,16)
+
+        search_str = "(X-GM-MSGID " + str(mid_int) + ")"
+        print "search string: '" + search_str + "'"
+        # First lets try to find its UID:
+        result,data = self.imap_conn.uid('search',None,search_str)
+        if result!="OK":
+            raise CollectorException((result,data)) 
+        print "fetch_one: search result: ", data
+        if len(data) < 1:
+            print "No results found for message ID"
+            return
+        uid = data[0]
+        # To be continued...

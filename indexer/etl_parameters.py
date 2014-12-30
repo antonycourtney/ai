@@ -176,13 +176,10 @@ class EtlParameters:
 		print "RMQ credentials: username [", self.rmq_params['username'], ']'
 		return self.rmq_params
 
-	#
-	# Process the arguments passed to the app
-	# We default a lot of these to the env vars etc collected above.
-	# User can provide most parameters using env vars and override them on the command line
-	#
-	def processArgs(self):
-		argParser = argparse.ArgumentParser(description='extract metadata from GMail messages stored in MongoDb')
+	# construct the argument parser
+	# broken out from processArgs so that it can be extended in subclasses
+	def getArgParser(self):
+		argParser = argparse.ArgumentParser(description='pull metadata from IMAP and upload to Redshift via S3')
 		argParser.add_argument('--format', metavar='<format>', type=str, default='csv',
 			help="ouput format for messages file ('json' or 'csv').")
 		argParser.add_argument('--outdir', metavar='<outdir>', type=str, default='data',
@@ -223,6 +220,13 @@ class EtlParameters:
 			help="Root name of the file to hold the message IDs")
 		argParser.add_argument('--userID', metavar='<userID>', type=int, default = 0,
 			help="User ID to use for local runs")
-		
-		return argParser.parse_args()
+		return argParser
 
+	#
+	# Process the arguments passed to the app
+	# We default a lot of these to the env vars etc collected above.
+	# User can provide most parameters using env vars and override them on the command line
+	#
+	def processArgs(self):
+		argParser = self.getArgParser()
+		return argParser.parse_args()
