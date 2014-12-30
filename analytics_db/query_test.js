@@ -7,8 +7,6 @@ var queries = require('./build/js/inbox_queries');
 // var conString = process.env.PG_CONN_STRING;
 var conString = process.env.AWS_REDSHIFT_CONN_STRING;
 
-
-
 pg.connect(conString, function(err, client, done) {
     function runQuery(query) {
         console.log("Executing query: ", query, ": ");

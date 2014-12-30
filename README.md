@@ -45,46 +45,18 @@ The folder structure of this repository reflects the architecture and is organiz
 
 # Setup
 
-You will need python 2.7.8 installed locally.
+### You will need the following installed locally:
 
-### Create a RedShift Instance
+- **Python 2.7.8** -
+- **Node and npm** - Both of which can be downloaded from [nodejs.org](http://www.nodejs.org/).  **Note**: Some platforms (such as CentOS 6) unfortunately don't seem to include an up-to-date (>= 2.0.0) version of npm with the packaged binary distribution.  If this turns out to be the case, npm can be upgraded by running `npm install -g npm` after initial installation.
+- **Postgres** - ?? version ?
+- **RabbitMQ** - ?? version ?
 
-Once you've created an AWS Account, open the [AWS Console page](https://console.aws.amazon.com/console/home?region=us-west-2) and select "Redshift" (under "Database") to open the Redshift Console.
+### Setup Amazon RedShift
 
-Click on the button labeled either "Create Cluster" or "Launch Cluster".
+Follow the detailed instructions in [analytics_db/README.md](analytic_db/README.md).
 
-In the form, just accept most of the defaults. I filled in only the following:
+### Setup Postgres
 
-    Cluster Identifier: my-redshift
-    Db name: mydb
-    Master User Name: awsuser
-    Master user password:   (I generated a fresh one in 1Password and stored this in a new 1Password login under "amazon-aws-redshift")
-  
-For the node configuration, also accepted defaults, starting with a Single Node configuration (7 EC2 compute units) per node.
-
-### Download an ODBC SQL IDE Client
-
-Redshift uses Postgres SQL, so any SQL IDE that can speak Postgres should work.
-So far I've found pgCommander to be a reasonable SQL editor / viewer on the Mac: [https://eggerapps.at/pgcommander/](https://eggerapps.at/pgcommander/)
-
-### Tweak Security Settings
-
-When I initially tried to connect to my RedShift instance from my desktop client, I could not establish an ODBC connection. Some [digging](http://docs.aws.amazon.com/redshift/latest/mgmt/connecting-refusal-failure-issues.html) revealed this is because of security settings, and I needed to explicit set up a security group that would allow connections from external IP addresses.
-
-I tried to follow the instructions on [http://docs.aws.amazon.com/redshift/latest/mgmt/managing-security-groups-console.html](ttp://docs.aws.amazon.com/redshift/latest/mgmt/managing-security-groups-console.html) but they seem to be out of date with UI, since CIDR/IP doesn't seem to be an option on Inbound security rules...
-
-From "Security Groups" page I did:
-
-  * Create Security Group
-  * Then added an Inbound rule to allow all traffic for all IPs.  (A more restrictive rule would obviously be better for production, but we'll still have user/password authentication over an SSL wrapped ODBC connection)
-  * From Redshift Console, set the VPC Security Group for the Redshift cluster to the newly created security group.
-
-### Set up ODBC Connection
-
-Use the Cluster Database Properties on the "Configuration" tab of the cluster from the AWS Redshift Console to fill in ODBC connection properties in the desktop client app.  Click a button to test the connection and make sure everything works.
-
-
-### Create Message and Recipients Tables
-
-In your RedShift SQL client, execute the commands in [analytics_db/create_users_table.sql](analytics_db/create_users_table.sql)
+**TODO**: Walk through essential details, including creating user
 
