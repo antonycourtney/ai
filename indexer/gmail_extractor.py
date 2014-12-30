@@ -47,15 +47,15 @@ def process_time_headers(timeHeaders):
         ts=None
     return ts
 
-
-
+#
+# Extract specific metadata from a message header dictionary
+#
 class MessageExtractor():
-    def __init__(self, msgWriter):
+    def __init__(self):
         self.msgIds = set()
         self.cacheHitCount=0
         self.numProcessed=0
         self.bulkCount = 0
-        self.msgWriter = msgWriter
 
     def extract_imap_hdict(self,hdict):
         try:
@@ -66,17 +66,21 @@ class MessageExtractor():
             except:
                 msgFrom = '(unknown)'
             # print "processed message ", mid, " From: ", msgFrom
-            self.msgWriter.writeMessage(msgMeta)
+
 
         except Exception as e:
             # We note that we had a problem, but otherwise move on
             # Note that the message ID will be recorded so we won't retry this message
             print "error processing message {0} - exception {1}".format(hdict['id'], str(e))
+            # re-throw:
+            raise
 
         # add the message ID to the list
         self.numProcessed += 1
         if (self.numProcessed % 1000)==0:
             print "messages processed: ", self.numProcessed
+        return msgMeta
+
 
     def process_imap_hdict(self, hdict):
         mid=hdict['id']

@@ -286,7 +286,7 @@ class GmailIMAPCollector:
 
             # Create the writers and MessageExtractor we need
             csvWriter = writers.CSVWriter(self.args, self.user_info)
-            extractor = MessageExtractor(csvWriter)
+            extractor = MessageExtractor()
 
             # Get the batch UIDS - take the last BATCH_SIZE elements from our list
             # Python is kind - if there are fewer elements than BATCH_SIZE, it will do the right thing here
@@ -297,7 +297,7 @@ class GmailIMAPCollector:
             self.sendProgressMessage(num_total_messages, num_missing_ids)
 
             # Get this batch of mails
-            self.get_batch(batch_uids, extractor)
+            self.get_batch(batch_uids, extractor, csvWriter)
 
             # Calc our stats
             print "\n\nCompleted batch of size: ", num_batch_ids
@@ -314,14 +314,14 @@ class GmailIMAPCollector:
 
             # Close the files and upload them
             csvWriter.close_files()
-            extractor.msgWriter.upload_to_s3()
-            extractor.msgWriter.upload_to_redshift()
+            csvWriter.upload_to_s3()
+            csvWriter.upload_to_redshift()
             # extractor.msgWriter.cleanup() # We don't clean up right now
 
         # Send a progress message when we finish
         self.sendProgressMessage(num_total_messages, num_missing_ids)
 
-    def get_batch(self, batch_uids, extractor):
+    def get_batch(self, batch_uids, extractor, writer):
 
         print "starting batch of size ", len(batch_uids)
 
@@ -371,7 +371,13 @@ class GmailIMAPCollector:
                 hdict["id"] = gmail_id
                 hdict["threadId"] = thr_id
 
-                extractor.extract_imap_hdict(hdict)
+                try:
+                    msgMeta = extractor.extract_imap_hdict(hdict)
+                except:
+                    # We'll log relevant exception info in extractor, so keep this brief:
+                    print "Unexpected exception while extracting metadata from message -- ignoring"
+                else:
+                    writer.writeMessage(msgMeta)
 
     #
     # get_gmail_message_id_map
