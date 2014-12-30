@@ -37,7 +37,7 @@ gulp.task('clean', function() {
 gulp.task('build_jquery', function() {
     gutil.log("copy jquery/dist from node_modules to build");
 
-    return gulp.src('node_modules/jquery/dist/**/*')
+    return gulp.src('../node_modules/jquery/dist/**/*')
         .pipe(gulp.dest('build/js'));
 });
 
@@ -45,7 +45,7 @@ gulp.task('build_jquery', function() {
 gulp.task('build_bootstrap', function() {
     gutil.log("copy bootstrap/dist from node_modules to build");
 
-    return gulp.src('node_modules/bootstrap/dist/**/*')
+    return gulp.src('../node_modules/bootstrap/dist/**/*')
         .pipe(gulp.dest('build'));
 });
 
@@ -70,14 +70,6 @@ gulp.task('build_javascript', function() {
         .pipe(rename({suffix: '.min'}))
         // Then output each optimized .min.js file --> ./build/js/ directory
         .pipe(gulp.dest('build/js/'));
-});
-
-// We'll run .js files in the queries subdir through the Traceur compiler,
-// which we use for template strings:
-gulp.task('build_queries', function() {
-    return gulp.src('queries/js/**/*.js')
-        .pipe(traceur())
-        .pipe(gulp.dest('build/js/'));    
 });
 
 var scriptPageDeps = [];
@@ -127,5 +119,4 @@ gulp.task('watch', function() {
     });
 });
 
-gulp.task('default', ['browserify','build_queries'], 
-    function() { });
+gulp.task('default', ['browserify']);

@@ -52,9 +52,9 @@ If all goes well, you should see the single result '93', and the process should 
 
 ## Building and Executing the Inbox Queries
 
-A fundamental problem with SQL is that lacks the basic mechanisms - procedures, functions and variables - that enable parameterization and code reuse in conventional programming languages.  
-To work around this limitation, we do not write SQL code directly.  Instead, we use the *template strings* feature of ES6 to
-compose SQL queries.  This enables us to use the abstraction mechanisms in JavaScript to achieve basic abstraction and reuse.
+A fundamental problem with SQL is that lacks the basic mechanisms - procedures, functions and variables - that enable parameterization and code reuse in conventional programming languages. To work around this limitation of SQL we do not
+write SQL code directly.  Instead, we use the *template strings* feature of ES6 to compose SQL queries. This enables
+us to use the abstraction mechanisms in JavaScript to achieve basic abstraction and reuse.
 
 ### Build the Inbox Queries
 
@@ -68,7 +68,7 @@ This should print a few lines of diagnostic output, and create a `build/js` dire
 
 Run:
 
-    $ node query_test.js rawMessageCount
+    $ node query_test.js
 
 If all goes well you should see a large amount of SQL output followed by results for two queries.  The first query simply counts the number of messages in the `messages` table; the second query obtains the top correspondents for the current user.
 
@@ -89,6 +89,8 @@ primary key constraints that our upload jobs will ensure, and the correctness of
 depends on these constraints.
 Similarly, some join queries depend on certain columns being in a canonical form (all lower-case).
 
-We have developed a small script that can be run to check that these constraints hold.
+We have developed a small script that can be run to check that these constraints hold:
 
     $ node runInvariantChecks.js
+
+will run all the invariant checks and print diagnostic output indicating any failures or 'ok' on success.

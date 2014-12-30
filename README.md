@@ -58,5 +58,34 @@ Follow the detailed instructions in [analytics_db/README.md](analytics_db/README
 
 ### Setup Postgres
 
-**TODO**: Walk through essential details, including creating user
+**TODO**: Walk through essential details
 
+### RabbitMQ
+
+**TODO**
+
+### Install JavaScript Package Dependencies
+
+    $ npm install
+
+## Building and Running the Front-End Server
+
+### Build client code
+
+In the `frontend` directory, run:
+
+    $ gulp
+
+This will copy third-party libraries (jQuery, Bootstrap, etc.) needed by the client, and also do pre-processing of the React.js sources of the client.
+
+#### Start the Indexer
+
+**TODO**: How to start the Indexer running, listening to RabbitMQ messages.
+
+### Running the Server
+
+Also in the `frontend` directory, run:
+
+    $ node server/server.js
+
+If all goes well you should now have a node server for Analytic Inbox running at [localhost:9000](http://localhost:9000)

@@ -7,7 +7,7 @@
 
 var _ = require('lodash');
 var pg = require('pg');
-var queries = require('./build/js/inbox_queries');
+var queries = require('../../analytics_db/build/js/inbox_queries');
 var Q = require('q');
 
 var conString = process.env.AWS_REDSHIFT_CONN_STRING;

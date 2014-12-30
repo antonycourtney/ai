@@ -52,7 +52,7 @@ indexer.setup(app);
 // For now -- to allow us to serve HTML files from ./public without enumerating a route for each one:
 
 // Make items placed in 'build' dir available at location /public:
-app.use("/public", express.static(__dirname + '/build'));
+app.use("/public", express.static(__dirname + '/../build'));
 
 app.get('/', function(req, res){
   console.log("/, req.flash('info'): ", req.flash('info'), "req.flash('error'): ", req.flash('error'));
