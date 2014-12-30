@@ -46,7 +46,7 @@ In your RedShift SQL client, execute the commands in [createTables.sql](analytic
 
 Run the following:
 
-  $ node pgtest.js
+    $ node pgtest.js
 
 If all goes well, you should see the single result '93', and the process should wait for additional input.
 
@@ -60,7 +60,7 @@ compose SQL queries.  This enables us to use the abstraction mechanisms in JavaS
 
 Run the following:
 
-  $ gulp
+    $ gulp
 
 This should print a few lines of diagnostic output, and create a `build/js` directory that will be populated with the result of running the contents of the `queries` directory through the Traceur compiler.
 
@@ -68,7 +68,7 @@ This should print a few lines of diagnostic output, and create a `build/js` dire
 
 Run:
 
-  $ node query_test.js rawMessageCount
+    $ node query_test.js rawMessageCount
 
 If all goes well you should see a large amount of SQL output followed by results for two queries.  The first query simply counts the number of messages in the `messages` table; the second query obtains the top correspondents for the current user.
 
@@ -80,13 +80,15 @@ We materialize a few tables on RedShift for maintaining tables of correspondents
 
 To construct these materialized tables, run:
 
-  $ node rebuild_derived_tables.js
+    $ node rebuild_derived_tables.js
 
 ### Run the Invariant Checks
 
-Redshift does not systematically check or enforce primary key constraints.  Nevertheless, our data model does ensure certain primary key constraints, and the correctness of many analytic queries invariably depends on these constraints.
-Similarly, some queries depend on certain columns being all lower-case.
+Redshift does not systematically check or enforce primary key constraints.  Nevertheless, our schema are designed with certain
+primary key constraints that our upload jobs will ensure, and the correctness of many analytic queries 
+depends on these constraints.
+Similarly, some join queries depend on certain columns being in a canonical form (all lower-case).
+
 We have developed a small script that can be run to check that these constraints hold.
 
-  $ node runInvariantChecks.js
-
+    $ node runInvariantChecks.js

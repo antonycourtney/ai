@@ -54,7 +54,7 @@ The folder structure of this repository reflects the architecture and is organiz
 
 ### Setup Amazon RedShift
 
-Follow the detailed instructions in [analytics_db/README.md](analytic_db/README.md).
+Follow the detailed instructions in [analytics_db/README.md](analytics_db/README.md).
 
 ### Setup Postgres
 
