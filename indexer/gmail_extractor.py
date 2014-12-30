@@ -12,7 +12,14 @@ import argparse
 import time
 import os
 import writers
+import email.Header
 
+
+# decode possibly encoded words:
+# See http://stackoverflow.com/questions/12903893/python-imap-utf-8q-in-subject-string
+def decode_str(str):
+    text, encoding = email.Header.decode_header(str)[0]
+    return text
 
 # make headers into a dictionary:
 def make_header_dict(headers):
@@ -25,7 +32,7 @@ def process_address_headers(rawAddrs):
     ret=[]
     for rawAddr in rawAddrs:
         addrTuples = rfc822.AddressList(rawAddr).addresslist
-        addrRecs = [{ 'parsedRealName': parsedRealName[0:127],
+        addrRecs = [{ 'parsedRealName': decode_str(parsedRealName)[0:127],
                       'parsedEmailAddress': parsedEmailAddress}
                         for (parsedRealName,parsedEmailAddress) in addrTuples ]
         ret += addrRecs
@@ -95,7 +102,7 @@ class MessageExtractor():
             # print "precedence: ", prec
             # isBulk=('list' in prec) or ('bulk' in prec)
             subjectHeaders=hdict.get('Subject',[None])
-            subject=subjectHeaders[0]
+            subject=decode_str(subjectHeaders[0])
             if subject:
                 subject=subject[:255]
             fromRec=process_address_headers(hdict['From'])
