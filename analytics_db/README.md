@@ -107,3 +107,12 @@ We have developed a small script that can be run to check that these constraints
     $ node runInvariantChecks.js
 
 will run all the invariant checks and print diagnostic output indicating any failures or 'ok' on success.
+
+### Testing a query with tq
+
+To execute a query and display the results with [sqlview](https://github.com/antonycourtney/sqlview), run `tq.sh` with the name of the query to execute.  For example:
+
+    $ tq.sh recipientNamePairs
+
+runs the `recipientNamePairs` query and makes the results available for viewing.
+
