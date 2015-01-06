@@ -11,8 +11,8 @@ CREATE TABLE messages
     snippet VARCHAR(512),
     sizeEstimate INTEGER,
     "date" TIMESTAMP,
-    uid VARCHAR(24) NOT NULL,
-    user_id INTEGER,
+    uid VARCHAR(24) NOT NULL,   -- legacy: Google+ UID
+    user_id INTEGER,            -- ai service user_id (in Postgres)
     createdAt TIMESTAMP
 );
 CREATE TABLE recipients
@@ -21,8 +21,8 @@ CREATE TABLE recipients
     recipientRealName VARCHAR(256),
     recipientEmailAddress VARCHAR(256),
     recipientType CHAR(6), 
-    uid VARCHAR(24) NOT NULL,
-    user_id INTEGER,
+    uid VARCHAR(24) NOT NULL,   -- legacy: Google+ UID
+    user_id INTEGER,            -- ai service user_id (in Postgres)
     createdAt TIMESTAMP
 );
 

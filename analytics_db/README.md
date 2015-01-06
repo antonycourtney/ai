@@ -116,3 +116,11 @@ To execute a query and display the results with [sqlview](https://github.com/ant
 
 runs the `recipientNamePairs` query and makes the results available for viewing.
 
+
+## Multi-Tenancy
+
+We investigated using Redshift's postgres schema facilities to handle multi-tenancy, but then discovered that there is a hard limit of 256 schema per Redshift database, and that just seems excessively limiting.
+
+So we'll go back to using the user_id in the raw messages and recipients tables, and we'll create per-user views on each.
+
+We'll also need the correspondent tables and corresponding views to be per-user.
