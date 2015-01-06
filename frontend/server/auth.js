@@ -38,7 +38,7 @@ passport.use(new GoogleStrategy({
         console.log("No identity found in db, creating...\n");
         console.log("expires_at: ", expires_at.format())
         var user = new models.User({real_name: profile.displayName }).save().then(function (userModel) {
-          var identity = new models.Identity({user_id: userModel.id, provider: 'google', uid: profile.id, access_token: accessToken, refresh_token: refreshToken, expires_at: expires_at});
+          var identity = new models.Identity({user_id: userModel.id, provider: 'google', uid: profile.id, email: profile.emails[0].value, access_token: accessToken, refresh_token: refreshToken, expires_at: expires_at});
           identity.save().then(function (identityModel) {
             return done(null,userModel);
           });
