@@ -29,6 +29,9 @@ from gmail_extractor import MessageExtractor
 
 from flopsy.flopsy import Connection, Consumer, Publisher
 
+from user_db import UserDb
+
+
 def GenerateOAuth2String(username, access_token, base64_encode=True):
   """Generates an IMAP OAuth2 authentication string.
 
@@ -181,28 +184,15 @@ class GmailIMAPCollector:
             # Use credentials from RabbitMQ index_message
             self.useRabbitCredentials(index_message)
 
-             # Create the service connection
-            self.create_imap_service()
 
         else:
-            forceRun = False
-            connected = False
+            # Use local credentials
+            self.useLocalCredentials()
 
-            while not(connected):
-                try:
-                    # Use local credentials
-                    self.useLocalCredentials()
+        self.user_db = UserDb(args.userDbParams) 
 
-                     # Create the service connection
-                    self.create_imap_service()
-                    connected = True
-
-                except Exception as e:
-                    print "Caught exception creating imap service:", e
-                    print "Forcing OAuth flow to run to renew credentials:"
-                    forceRun=True
-                    connected = False
-    
+        # Create the service connection
+        self.create_imap_service()
         print "Succesfully connected to IMAP server"
 
     #
@@ -239,8 +229,10 @@ class GmailIMAPCollector:
 
     #
     # use gmail credentals from local dir for when we are running locally
-    #
-    def useLocalCredentials(self,forceRun=False):
+    def useLocalCredentials(self):
+        # We'll always run the OAuth step just to ensure we don't pick up credentials from storage
+        # that are inconsistent with userID:
+        forceRun=True
 
         # Location of the credentials storage file
         STORAGE = Storage('gmail.storage')
@@ -254,6 +246,7 @@ class GmailIMAPCollector:
         if credentials is None or credentials.invalid or forceRun:
           credentials = run(flow, STORAGE, http=self.http)
 
+        print "Got credentials: ", credentials
         self.credentials = credentials
         # Authorize the httplib2.Http object with our credentials
         self.http = credentials.authorize(self.http)
@@ -267,6 +260,17 @@ class GmailIMAPCollector:
         self.user_info = self.plus_service.people().get(userId='me').execute()
 
         user_email = self.user_info['emails'][0]['value']
+
+        identities = self.user_db.get_identities(self.args.userID)
+
+        print "create_imap_service: identities: ", identities
+        id_emails = map(lambda i: i['email'], identities)
+        print "create_imap_service: emails: ", id_emails
+
+        if not (user_email in id_emails):
+            msg = "OAuth Authenticated Email Address '" + user_email + \
+                "' not found in email addresses for user id " + str(self.args.userID) + ": " + str(id_emails)
+            raise CollectorException(msg)
 
         auth_string = GenerateOAuth2String(user_email, self.credentials.access_token, base64_encode=False)
 

@@ -20,6 +20,21 @@ class EtlParameters:
 		self.awsParams = None
 		self.awsDefaultBucket = None
 		self.rmq_params = None
+		self.userDbParams = None
+
+	# Postgres userdb parameters:
+	def getUserDbParameters(self):
+		if self.userDbParams == None:
+			# pull Postgres Db params from environment:
+			self.userDbParams = {
+				'host': os.environ['PG_INSTANCE'],
+				'port':	os.environ['PG_PORT'],
+				'user': os.environ['PG_USER'],
+				'password': os.environ['PG_PWD'],
+				'db': os.environ['PG_DB']
+			}
+		return self.userDbParams
+
 
 	#
 	# Redshift Parameters
@@ -229,4 +244,9 @@ class EtlParameters:
 	#
 	def processArgs(self):
 		argParser = self.getArgParser()
-		return argParser.parse_args()
+		# hings that can be overridden on command line:
+		argsNS = argParser.parse_args()
+		argsDict = vars(argsNS)	# get underlying dictionary so we can write to it
+		# Other stuff, pulled from environment:
+		argsDict['userDbParams'] = self.getUserDbParameters()
+		return argsNS

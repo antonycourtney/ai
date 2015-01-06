@@ -17,6 +17,8 @@ print "Starting Inbox Analytics Backend / ETL"
 etl_parameters = EtlParameters()
 args = etl_parameters.processArgs()
 
+print "Got args: ", args
+
 # Check if we're getting credentials from RabbitMQ or just getting them locally
 if args.useRabbit:
 
@@ -75,4 +77,3 @@ else:
     gc = GmailIMAPCollector(args)
     # Collect and upload the mail
     gc.sync()
-
