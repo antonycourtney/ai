@@ -44,7 +44,7 @@ CREATE TABLE gmail_syncs
   status_message varchar(128),
   last_indexed timestamp with time zone,
   last_requested timestamp with time zone,
-  last_msgid integer
+  last_msg_uid integer
 );
 ALTER TABLE gmail_syncs 
   OWNER TO glenmistro;
