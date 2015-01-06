@@ -67,8 +67,11 @@ if args.useRabbit:
     consumer.wait()
 
 else:
+    if not args.userID:
+        print "--userID is required when not rubbing with --useRabbit true"
+        sys.exit(1)
 
-    # Create the Gmail collector using local credentials
+    #Create the Gmail collector using local credentials
     gc = GmailIMAPCollector(args)
     # Collect and upload the mail
     gc.sync()

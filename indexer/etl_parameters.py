@@ -218,7 +218,7 @@ class EtlParameters:
 			help="Root name of the file to hold the recipients")
 		argParser.add_argument('--messageIdsFile', metavar='<messageIdsFile>', type=str, default='message_ids',
 			help="Root name of the file to hold the message IDs")
-		argParser.add_argument('--userID', metavar='<userID>', type=int, default = 0,
+		argParser.add_argument('--userID', metavar='<userID>', type=int,
 			help="User ID to use for local runs")
 		return argParser
 
