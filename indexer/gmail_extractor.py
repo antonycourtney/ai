@@ -58,15 +58,19 @@ def process_time_headers(timeHeaders):
         ts=None
     return ts
 
+class ExtractorException(Exception):
+    def __init__(self,messageId,origException):
+        self.messageId=messageId
+        self.origException=origException
+
+
 #
 # Extract specific metadata from a message header dictionary
 #
 class MessageExtractor():
-    def __init__(self):
-        self.msgIds = set()
-        self.cacheHitCount=0
+    def __init__(self,errorLogger=None):
         self.numProcessed=0
-        self.bulkCount = 0
+        self.errorLogger=errorLogger
 
     def extract_imap_hdict(self,hdict):
         try:
@@ -82,9 +86,16 @@ class MessageExtractor():
         except Exception as e:
             # We note that we had a problem, but otherwise move on
             # Note that the message ID will be recorded so we won't retry this message
-            print "error processing message {0} - exception {1}".format(hdict['id'], str(e))
+            messageId = hdict['id']
+            exceptionMessage = str(e)
+            print "error processing message {0} - exception {1}".format(messageId,exceptionMessage)
             # re-throw:
-            raise
+            if self.errorLogger != None:
+                print "Logging error message"
+                self.errorLogger.log_extract_failure(messageId,exceptionMessage)
+            else:
+                print "No error logger set on extractor -- dropping error"
+            raise ExtractorException(messageId,exceptionMessage)
 
         # add the message ID to the list
         self.numProcessed += 1

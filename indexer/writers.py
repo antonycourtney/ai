@@ -185,6 +185,7 @@ class CSVWriter:
         cur.execute(messages_upload)
         cur.execute(recipients_upload)
         conn.commit()
+        print "Upload from S3 to Redshift complete."
 
     def cleanup(self):
         print "Cleaning up S3 and local filesystem"

@@ -17,6 +17,7 @@ import collections
 import re
 import types
 import json
+import datetime
 
 from apiclient.discovery import build
 from apiclient.http import BatchHttpRequest
@@ -25,7 +26,7 @@ from oauth2client.tools import run
 from oauth2client.file import Storage
 
 from simple_throttler import SimpleThrottler
-from gmail_extractor import MessageExtractor
+from gmail_extractor import MessageExtractor, ExtractorException
 
 from flopsy.flopsy import Connection, Consumer, Publisher
 
@@ -157,6 +158,30 @@ def match_re(re,str):
         raise CollectorException(msg)
     return match.groups()[0]
 
+#
+# A simple logger for recording errors to UserDb
+#
+class UserErrorLogger:
+    def __init__(self,user_id,user_db):
+        self.user_id = user_id
+        self.user_db = user_db
+
+    # log an error that occurred during message extraction process:
+    def log_extract_failure(self,msgId,exceptionMsg):
+        try:
+            logTime = datetime.datetime.now()
+            self.user_db.log_download_failure(self.user_id,msgId,exceptionMsg,logTime)
+            print "Failure message logged"
+        except Exception as e:
+            print "Caught exception while logging exception: ", str(e)
+
+#
+# We keep failedMessages as module-level state because we create a new 
+# GMailIMAPCollector for every request from AMQP, but want the
+# set of failed messages to persist across indexer runs
+
+failedMessageIds = set()
+
 class GmailIMAPCollector:
 
     def __init__(self, args, index_message=None, amqp_connection=None):
@@ -176,6 +201,7 @@ class GmailIMAPCollector:
 
         self.amqp_connection = amqp_connection
 
+
         if index_message:
 
             # Extract the user ID to use for this run
@@ -190,6 +216,8 @@ class GmailIMAPCollector:
             self.useLocalCredentials()
 
         self.user_db = UserDb(args.userDbParams) 
+
+        self.error_logger = UserErrorLogger(self.args.userID,self.user_db)
 
         # Create the service connection
         self.create_imap_service()
@@ -263,9 +291,7 @@ class GmailIMAPCollector:
 
         identities = self.user_db.get_identities(self.args.userID)
 
-        print "create_imap_service: identities: ", identities
         id_emails = map(lambda i: i['email'], identities)
-        print "create_imap_service: emails: ", id_emails
 
         if not (user_email in id_emails):
             msg = "OAuth Authenticated Email Address '" + user_email + \
@@ -307,7 +333,7 @@ class GmailIMAPCollector:
 
             # Create the writers and MessageExtractor we need
             csvWriter = writers.CSVWriter(self.args, self.user_info)
-            extractor = MessageExtractor()
+            extractor = MessageExtractor(self.error_logger)
 
             # Get the batch UIDS - take the last BATCH_SIZE elements from our list
             # Python is kind - if there are fewer elements than BATCH_SIZE, it will do the right thing here
@@ -395,9 +421,12 @@ class GmailIMAPCollector:
         for hdict in batch_hdicts:
             try:
                 msgMeta = extractor.extract_imap_hdict(hdict)
+            except ExtractorException as e:
+                print "Got extractor exception -- adding message Id ", e.messageId, " to failedMessageIds"
+                failedMessageIds.add(e.messageId)
             except:
                 # We'll log relevant exception info in extractor, so keep this brief:
-                print "Unexpected exception while extracting metadata from message -- ignoring"
+                print "Unknown exception while extracting metadata from message -- ignoring"
             else:
                 writer.writeMessage(msgMeta)
 
@@ -460,6 +489,11 @@ class GmailIMAPCollector:
         gmail_id_set = set(gmail_id_map.keys())
         missing_ids = gmail_id_set - messageIds
         print "IDs in gmail_id_set not in RedShift: ", len(missing_ids)
+
+        # Remove any ids we've tried before in this session that previously failed:
+        missing_ids = missing_ids - failedMessageIds
+
+        print "IDs in gmail_id_set not in RedShift and not in failedMessageIds: ", len(missing_ids)
 
         # Convert the missing ids to UIDs
         target_uids = set()

@@ -78,13 +78,38 @@ In the `frontend` directory, run:
 
 This will copy third-party libraries (jQuery, Bootstrap, etc.) needed by the client, and also do pre-processing of the React.js sources of the client.
 
-#### Start the Indexer
+### Running the Indexer
 
-**TODO**: How to start the Indexer running, listening to RabbitMQ messages.
+To start the indexer in normal (daemon) mode, in the `indexer` directory run:
+
+    $ python start.py --useRabbit true
+
+After some initial diagnostic output, the indexer will wait for request messages from the front end process.
+
+#### Running the Indexer Manually
+
+If for some reason you wish to force indexing by hand, you may run:
+
+    $ python start.py --userID <N>
+
+where `<N>` is the user ID from the Postgres database for the user account whose email metadata is to be uploaded by the Indexer to upload to Redshift.  Note that this requires an existing user account exist; currently the only way to do this is manually via logging in to the front end.
+
+#### Fetching individual IMAP messages
+
+For development and debugging, the indexer also provides a utility for fetching an individual message by its GMail Message ID.  Run as follows:
+
+    $ python fetch_one.py --userID <N> <MID>
+
+where `<N>` is the user ID for the user and `<MID>` is the hex GMail Message ID.  For example:
+
+    $ python fetch_one.py --userID 1 1010890a8fec837f
+
 
 ### Running the Server
 
-Also in the `frontend` directory, run:
+You should start the indexer (with the `--useRabbit true` argument -- see previous section) before starting the front end.
+
+To start the front end, in the `frontend` directory, run:
 
     $ node server/server.js
 
