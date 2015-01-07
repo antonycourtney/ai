@@ -55,42 +55,51 @@ function sendGmailIndexMessage(user) {
   console.log("######## sendGmailIndexMessage starting for user: ", user);
 
   // Need to get the identity being used
-  var id = new models.Identity({provider: 'google', user_id: user.id}).fetch().then(function (identityModel) {
+  var id = new models.Identity({provider: 'google', user_id: user.id}).fetch().then(function (identity) {
+    if (identity) {
 
-    console.log("######## got identity: ", identityModel);
+      var gsync = new models.GmailSync({user_id: identity.attributes["user_id"]}).fetch().then(function(gsync){
+        if (!gsync) {
+          // Couldn't find a gsync record for this user - initialize a new one
+          gsync = new models.GmailSync({user_id:  identity.attributes["user_id"]});
+        }
 
-    var message = {
-      "access_token": identityModel["attributes"]["access_token"],
-      "refresh_token": identityModel["attributes"]["refresh_token"],
-      "expires_at": identityModel["attributes"]["expires_at"],
-      "user_id": user.id
-    };
-    console.log("######## built message: ", message);
+        console.log("######## got identity: ", identity);
 
-    console.log("######## creating amqp_connection");
-    var amqp_connection = createAMQPConnection();
+        var message = {
+          "access_token": identity["attributes"]["access_token"],
+          "refresh_token": identity["attributes"]["refresh_token"],
+          "expires_at": identity["attributes"]["expires_at"],
+          "user_id": user.id,
+          "last_msg_uid": gsync.attributes["last_msg_uid"]
+        };
+        console.log("######## built message: ", message);
 
-    amqp_connection.on('ready', 
-      function() {
-        console.log("######## connection ready, creating exchange");
+        console.log("######## creating amqp_connection");
+        var amqp_connection = createAMQPConnection();
 
-        amqp_connection.exchange("ia.gmail.analyse",
-          { type: 'fanout'
-            ,durable: true
-            ,autoDelete: false
-          },
-          function (exchange) {
-            console.log('######## exchange ' + exchange.name + ' is open');
-            exchange.publish("", message, {}, function (error) { amqp_connection.disconnect(); });
+        amqp_connection.on('ready', 
+          function() {
+            console.log("######## connection ready, creating exchange");
+
+            amqp_connection.exchange("ia.gmail.analyse",
+              { type: 'fanout'
+                ,durable: true
+                ,autoDelete: false
+              },
+              function (exchange) {
+                console.log('######## exchange ' + exchange.name + ' is open');
+                exchange.publish("", message, {}, function (error) { amqp_connection.disconnect(); });
+              }
+            );
           }
         );
-      }
-    );
 
-    amqp_connection.on('error', function(e) {
-      console.log("######## sendGmailIndexMessage connection error:", e);
-    });
-
+        amqp_connection.on('error', function(e) {
+          console.log("######## sendGmailIndexMessage connection error:", e);
+        });
+      });
+    };
   });
 
 }
@@ -152,6 +161,7 @@ function listenForProgressMessages(){
                         gsync.attributes.status_message = "Indexing complete";
                       }
                       gsync.attributes.last_indexed = new Date().toISOString();
+                      gsync.attributes.last_msg_uid = progress.last_msg_uid;
                       gsync.save();
                     });
                   } else {

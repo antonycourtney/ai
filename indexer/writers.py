@@ -186,6 +186,8 @@ class CSVWriter:
         cur.execute(recipients_upload)
         conn.commit()
 
+        print "Upload complete"
+
     def cleanup(self):
         print "Cleaning up S3 and local filesystem"
         
