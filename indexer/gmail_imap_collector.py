@@ -207,6 +207,15 @@ class GmailIMAPCollector:
             # Extract the user ID to use for this run
             self.args.userID = index_message["user_id"]
 
+            # Extract the highest UID previously fetched from the message, if it exists
+            try:
+                self.last_msg_uid = int(index_message["last_msg_uid"])
+            except Exception, e:
+                self.last_msg_uid = 1
+
+            if (self.last_msg_uid < 1):
+                self.last_msg_uid = 1
+
             # Use credentials from RabbitMQ index_message
             self.useRabbitCredentials(index_message)
 
@@ -316,7 +325,7 @@ class GmailIMAPCollector:
         #
         # Get a map of all message_ids. We do this once per run as it pulls a lot of data from Google IMAP
         #
-        gmail_id_map = self.get_gmail_message_id_map()
+        gmail_id_map = self.get_gmail_message_id_map(self.last_msg_uid) 
         num_total_messages = len(gmail_id_map)
         print "Got all gmail ids. length: ", num_total_messages
 
@@ -326,38 +335,42 @@ class GmailIMAPCollector:
 
         # Get a list of all the missing UIDs
         missing_uids = self.get_missing_uids(gmail_id_map, messageIds)
-        num_missing_ids = len(missing_uids)
-        print "Number of missing UIDs: ", num_missing_ids
+        num_missing_uids = len(missing_uids)
+        print "Number of missing UIDs: ", num_missing_uids
 
-        while (num_missing_ids > 0):
+        while (num_missing_uids > 0):
 
             # Create the writers and MessageExtractor we need
             csvWriter = writers.CSVWriter(self.args, self.user_info)
             extractor = MessageExtractor(self.error_logger)
 
-            # Get the batch UIDS - take the last BATCH_SIZE elements from our list
+            # Get the batch UIDS - take the first BATCH_SIZE elements from our list
             # Python is kind - if there are fewer elements than BATCH_SIZE, it will do the right thing here
-            batch_uids = missing_uids[-self.BATCH_SIZE:] # Grab the last BATCH_SIZE UIDs for this batch
+            batch_uids = missing_uids[:self.BATCH_SIZE] # Grab the first BATCH_SIZE UIDs for this batch
             num_batch_ids = len(batch_uids)
 
             # Send a progress message before we get going for anyone interested
-            self.sendProgressMessage(num_total_messages, num_missing_ids)
+            self.sendProgressMessage(num_total_messages, num_missing_uids, self.last_msg_uid)
 
             # Get this batch of mails
             self.process_batch(batch_uids, extractor, csvWriter)
 
             # Calc our stats
             print "\n\nCompleted batch of size: ", num_batch_ids
-            pct_complete= (float(num_batch_ids) / num_missing_ids)
+            pct_complete= (float(num_batch_ids) / num_missing_uids)
             pc_str = '{:.2%}'.format(pct_complete)
-            print "Overall progress: downloaded", num_batch_ids, "of", num_missing_ids, "msg headers (", pc_str, ")"
+            print "Overall progress: downloaded", num_batch_ids, "of", num_missing_uids, "msg headers (", pc_str, ")"
+
+            # Record the max UID we've fetched - the last in this batch of missing UIDs
+            self.last_msg_uid = batch_uids[-1]
 
             # Update the missing_uids to remove this batch. We assume we got them all
-            missing_uids = missing_uids[:-self.BATCH_SIZE] # Retain the remaining UIDS
-            prev_num_missing_ids = num_missing_ids
-            num_missing_ids = len(missing_uids) # should be monotonically decreasing, so the while loop will end
-            if (num_missing_ids >= prev_num_missing_ids):
-                raise CollectorException("num_missing_ids didn't go down as expected")
+            missing_uids = missing_uids[self.BATCH_SIZE:] # Retain the remaining UIDS
+
+            prev_num_missing_uids = num_missing_uids
+            num_missing_uids = len(missing_uids) # should be monotonically decreasing, so the while loop will end
+            if (num_missing_uids >= prev_num_missing_uids):
+                raise CollectorException("num_missing_uids didn't go down as expected")
 
             # Close the files and upload them
             csvWriter.close_files()
@@ -366,7 +379,7 @@ class GmailIMAPCollector:
             # extractor.msgWriter.cleanup() # We don't clean up right now
 
         # Send a progress message when we finish
-        self.sendProgressMessage(num_total_messages, num_missing_ids)
+        self.sendProgressMessage(num_total_messages, num_missing_uids, self.last_msg_uid)
 
     # given an individual entry in an IMAP fetch result, turn it into a header dictionary:
     def imap_fetch_to_hdict(self,datum):
@@ -436,23 +449,29 @@ class GmailIMAPCollector:
     # get all GMail message ids via IMAP:
     # returns a dict mapping GMail Message IDs (as hex strings) to IMAP message UIDs
     #
-    def get_gmail_message_id_map(self):
+    def get_gmail_message_id_map(self, last_msg_uid = 1):
+
         # do a simple search for all messages
         result, data = self.imap_conn.select('[Gmail]/All Mail')
         print "self.imap.select: result: ", result, ", data: ", data
+
         if result!="OK":
             raise CollectorException((result,data)) 
-        result,data = self.imap_conn.uid('search',None,"ALL")
+
+        result,data = self.imap_conn.uid('search',None,"(UID {}:*)".format(str(last_msg_uid)))
+
         if result!="OK":
             raise CollectorException((result,data)) 
-        print "get_gmail_message_id_map: len(data): ", len(data)
-        
-        
+                
         msgNums = data[0].split()
         print "got ", len(msgNums), " message numbers"
         print "first msgNum:", msgNums[0]
         print "last msgNum:", msgNums[-1]
-        fetchRange = str(msgNums[0]) + ':' + str(msgNums[-1])     
+        print "last_msg_uid:", last_msg_uid
+
+        starting_uid = max(msgNums[0], last_msg_uid)
+
+        fetchRange = str(starting_uid) + ':' + str(msgNums[-1])
 
         print "Fetching GMail message IDs for:", fetchRange
 
@@ -505,7 +524,7 @@ class GmailIMAPCollector:
         uids_list.sort()
         return uids_list
 
-    def sendProgressMessage(self, num_total_messages, num_missing_ids):
+    def sendProgressMessage(self, num_total_messages, num_missing_uids, last_msg_uid):
         
         # We don't send progress messages if we're not using Rabbit
         if self.usingRabbit:
@@ -514,7 +533,8 @@ class GmailIMAPCollector:
                 # Create the message we want to send
                 message = {
                     "num_total_messages": num_total_messages,
-                    "num_missing": num_missing_ids,
+                    "num_missing": num_missing_uids,
+                    "last_msg_uid": last_msg_uid,
                     "tenant_uid": self.user_info["id"]
                 }
 

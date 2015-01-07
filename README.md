@@ -29,6 +29,14 @@ The Postgres database stores metadata such as user accounts and preferences, and
 
 Redshift is the analytics data warehouse.
 
+# Cloning the repository
+
+To clone the respository, use:
+    $ git clone git@github.com:glenmistro/ai.git
+
+You then must update submodules etc. A simple way to do this is:
+    $ git pull && git submodule init && git submodule update && git submodule status
+
 # Repository Structure
 
 The folder structure of this repository reflects the architecture and is organized as follows:
@@ -77,6 +85,13 @@ In the `frontend` directory, run:
     $ gulp
 
 This will copy third-party libraries (jQuery, Bootstrap, etc.) needed by the client, and also do pre-processing of the React.js sources of the client.
+
+### Build the analytics code
+
+In the `analytics_db` directory, run:
+    $ gulp
+
+This will make the queries available to the front end code.
 
 ### Running the Indexer
 
