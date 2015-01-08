@@ -7,8 +7,13 @@ declare -x AWS_REDSHIFT_PORT="<instance port # - e.g. 5439>"
 declare -x AWS_REDSHIFT_USER="<redshift user - e.g. awsuser>"
 declare -x AWS_REDSHIFT_PWD="<redshift password>"
 
+# Passwords for additional redshift user accounts:
+declare -x AWS_REDSHIFT_INDEXER_PWD="<indexer password>"
+declare -x AWS_REDSHIFT_FRONTEND_PWD="<frontend password>"
+
 # postgres-style connection string for RedShift:
 declare -x AWS_REDSHIFT_CONN_STRING="postgres://$AWS_REDSHIFT_USER:$AWS_REDSHIFT_PWD@$AWS_REDSHIFT_INSTANCE:$AWS_REDSHIFT_PORT/$AWS_REDSHIFT_DB"
+declare -x AWS_REDSHIFT_FRONTEND_STRING="postgres://ai_frontend:$AWS_REDSHIFT_FRONTEND_PWD@$AWS_REDSHIFT_INSTANCE:$AWS_REDSHIFT_PORT/$AWS_REDSHIFT_DB"
 
 declare -x AWS_S3_BUCKET="<s3 bucket name - e.g. glenmistro-ia-dev-DevID >"
 

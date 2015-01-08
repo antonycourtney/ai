@@ -1,6 +1,6 @@
 var pg = require('pg');
 // var conString = process.env.PG_CONN_STRING;
-var conString = process.env.AWS_REDSHIFT_CONN_STRING;
+var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
 
 pg.connect(conString, function(err, client, done) {
   if(err) {
@@ -14,6 +14,7 @@ pg.connect(conString, function(err, client, done) {
       return console.error('error running query', err);
     }
     console.log(result.rows[0].number);
+    pg.end();
     //output: 1
   });
 });

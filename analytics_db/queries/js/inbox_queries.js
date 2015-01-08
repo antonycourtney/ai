@@ -10,29 +10,47 @@ function quotedList(vals) {
   return qvs.join(',');
 }
 
-var rawMessagesCount=`
-select count(*)
-from messages`;
+// create and return a query context, needed by all queries:
+// Almost the identity function now, but we may add more later.
+function queryContext(options) {
+  return {user_id: options.user_id};
+};
 
-var messagesSentCountPerCorrespondentPerDay = `
+var messages_view = (ctx) => `messages_v_${ctx.user_id}`;
+var recipients_view = (ctx) => `recipients_v_${ctx.user_id}`;
+
+var rawMessagesCount = (ctx) => `
+select count(*)
+from ${messages_view(ctx)}`;
+
+/*
+ * For now we'll construct a correspondentNames and correspondentEmails table
+ * per user.
+ * But in future we may want to make these into views rather than tables,
+ * so we call them _rel, since callers don't care if it's a table or a view.
+ */
+var correspondentNames_rel = (ctx) => `correspondentNames_${ctx.user_id}`
+var correspondentEmails_rel = (ctx) => `correspondentEmails_${ctx.user_id}`
+
+var messagesSentCountPerCorrespondentPerDay = (ctx) => `
   select 
       date(received) as dt,
       recipientCorrespondentId as correspondentId,
       recipientCorrespondentName as correspondentName,
       count(*) as messagesSent
-  from FromUserCIDMessagesRecipients
+  from ${fromUserCIDMessagesRecipients(ctx)}
   group by dt,correspondentId,correspondentName`;
 
-var messagesReceivedCountPerCorrespondentPerDay = `
+var messagesReceivedCountPerCorrespondentPerDay = (ctx) => `
   select 
       date(received) as dt,
       fromCorrespondentId as correspondentId,
       fromCorrespondentName as correspondentName,
       count(*) as messagesReceived
-  from DirectToUserMessages
+  from ${directToUserMessages(ctx)}
   group by dt,correspondentId,correspondentName`;
 
-var messagesExchangedCountPerCorrespondentPerDay = `
+var messagesExchangedCountPerCorrespondentPerDay = (ctx) => `
   select COALESCE(ms.dt,mr.dt) AS dt,
          COALESCE(ms.correspondentId,mr.correspondentId) AS correspondentId,
          COALESCE(ms.correspondentName,mr.correspondentName) AS correspondentName,
@@ -40,64 +58,66 @@ var messagesExchangedCountPerCorrespondentPerDay = `
          COALESCE(mr.messagesReceived,0) AS messagesReceived,
          (COALESCE(ms.messagesSent,0) + COALESCE(mr.messagesReceived,0)) AS messagesExchanged
   from 
-    (${messagesSentCountPerCorrespondentPerDay}) ms 
+    (${messagesSentCountPerCorrespondentPerDay(ctx)}) ms 
       full outer join 
-    (${messagesReceivedCountPerCorrespondentPerDay}) mr 
+    (${messagesReceivedCountPerCorrespondentPerDay(ctx)}) mr 
       on ms.dt = mr.dt and ms.correspondentId=mr.correspondentId`;
 
-var correspondentMessagesExchangedSinceDate = `
+// TODO: make start date a parameter!
+var correspondentMessagesExchangedSinceDate = (ctx) => `
   select correspondentId,
          correspondentName,
          sum(messagesSent) as messagesSent,
          sum(messagesReceived) as messagesReceived,
          sum(MessagesExchanged) as messagesExchanged
-  from (${messagesExchangedCountPerCorrespondentPerDay})
+  from (${messagesExchangedCountPerCorrespondentPerDay(ctx)})
   where dt >= DATE('2013-01-01')
   group by correspondentId,correspondentName`;
 
-var correspondentLastReceived = `
+var correspondentLastReceived = (ctx) => `
     select FromCorrespondentId,
            FromCorrespondentName,
            max(received) as LastReceived
-    from DirectToUserMessages cm
+    from ${directToUserMessages(ctx)} cm
     group by FromCorrespondentId,FromCorrespondentName`;
 
-var correspondentLastSent = `
+var correspondentLastSent = (ctx) => `
     select RecipientCorrespondentID, 
            RecipientCorrespondentName,
            max(received) as LastSent
-    from FromUserCIDMessagesRecipients fu
+    from ${fromUserCIDMessagesRecipients(ctx)} fu
     group by RecipientCorrespondentID,RecipientCorrespondentName`;
 
-var topCorrespondents = `
+var topCorrespondents = (ctx) => `
   select mx.correspondentName,
          messagesSent,messagesReceived,messagesExchanged,
          case when lmr.lastReceived > lms.lastSent then lmr.lastReceived
               else lms.lastSent
          end as lastContact
-  from (${correspondentMessagesExchangedSinceDate}) mx,
-    (${correspondentLastReceived}) lmr,
-    (${correspondentLastSent}) lms
+  from (${correspondentMessagesExchangedSinceDate(ctx)}) mx,
+    (${correspondentLastReceived(ctx)}) lmr,
+    (${correspondentLastSent(ctx)}) lms
   where messagesSent > 5  
   and mx.correspondentId = lmr.fromCorrespondentId
   and mx.correspondentId = lms.recipientCorrespondentId
   order by messagesExchanged desc
   limit 75`;
 
-var correspondentFromName = (nm) => `
+var correspondentFromName = (ctx,nm) => `
   select cn.correspondentId,cn.correspondentName
-  from CorrespondentNames cn
+  from ${correspondentNames_rel(ctx)} cn
   where cn.correspondentName='${nm}'`
 
-var directToUserMessagesFromCorrespondentName = (qp) => `
+var directToUserMessagesFromCorrespondentName = (ctx,qp) => `
 select messageId,received,subject
-from directtousermessages
+from ${directToUserMessages(ctx)}
 where fromCorrespondentName='${qp.correspondent_name}'
 order by received desc`;
 
-var allCorrespondents = `
+var allCorrespondents = (ctx) => `
 select cnms.correspondentId,correspondentName,emailAddress
-from correspondentNames cnms natural join correspondentEmails
+from ${correspondentNames_rel(ctx)} cnms natural join 
+    ${correspondentEmails_rel(ctx)}
 order by correspondentName,emailAddress`;
 
 /*
@@ -106,37 +126,38 @@ order by correspondentName,emailAddress`;
 
 var lastFirstRE = '^([A-Z][a-z]*)\,[ ]?([A-Z][a-z]*)([ ][A-Z][\.]?)?$';
 
-var commaFromRealNames = `
+var commaFromRealNames = (ctx) => `
   SELECT DISTINCT m.fromRealName rnm,
   regexp_count(rnm,'${lastFirstRE}') as cnt,
   regexp_replace(rnm,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as rep
-  FROM messages m
+  FROM ${messages_view(ctx)} m
   WHERE strpos(rnm,',') > 0
   ORDER BY rnm`;
 
 /* real name, email address pairs after normalizing real names with
  * the lastFirstRE
  */
-var normFromPairs = `
+var normFromPairs = (ctx) => `
   SELECT regexp_replace(m.fromRealName,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as fromRealName,
           m.fromEmailAddress
-  FROM messages m`;
+  FROM ${messages_view(ctx)} m`;
 
 /* same things, but for recipient name,address pairs: */
-var normRecipPairs = `
+var normRecipPairs = (ctx) => `
   SELECT regexp_replace(r.recipientRealName,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as recipientRealName,
           r.recipientEmailAddress
-  FROM recipients r`;
+  FROM ${recipients_view(ctx)} r`;
 
 /* 
  * Note that this has only lower case email addresses but mixed case correspondent names.
  * Used solely for finding the 'best' correspondentName for a given email address
  */
-var fromAddressNamePairs = `
+// distinct (emailAddress,realName) pairs appearing in From: line, with count of occurrences
+var fromAddressNamePairs = (ctx) => `
   SELECT LOWER(m.fromEmailAddress) AS emailAddress,
           COALESCE(NULLIF(m.fromRealName,''),m.fromEmailAddress) AS correspondentName,
           COUNT(*) AS addrNameMessageCount
-   FROM (${normFromPairs}) m
+   FROM (${normFromPairs(ctx)}) m
    WHERE LENGTH(m.fromEmailAddress) > 0
    GROUP BY emailAddress,
             correspondentName`;
@@ -145,37 +166,48 @@ var fromAddressNamePairs = `
  * same property as name pairs:  A given email address will only appear in canonical form,
  * but correspondentName will be mixed case
  */
-var recipientNamePairs =`
+/* Like fromAddressNamePairs, but over all recipients. Includes count of occurrences */
+var recipientNamePairs = (ctx) => `
    SELECT LOWER(r.recipientEmailAddress) AS emailAddress,
           COALESCE(NULLIF(r.recipientRealName,''),r.recipientEmailAddress) AS correspondentName,
           COUNT(*) AS addrNameMessageCount
-   FROM (${normRecipPairs}) r
+   FROM (${normRecipPairs(ctx)}) r
    WHERE LENGTH(r.recipientEmailAddress) > 0
    GROUP BY emailAddress,
             correspondentName`;
 
-var distinctFromAddrs = `
+/* set of distinct email addresses occuring on From: line */
+var distinctFromAddrs = (ctx) => `
    SELECT DISTINCT fanp.emailAddress
-   FROM (${fromAddressNamePairs}) fanp`;
+   FROM (${fromAddressNamePairs(ctx)}) fanp`;
 
-var distinctToAddrs =`
+/* set of distinct email addresses appearing as recipient */
+var distinctToAddrs = (ctx) => `
    SELECT DISTINCT rnp.emailAddress
-   FROM (${recipientNamePairs}) rnp`;
+   FROM (${recipientNamePairs(ctx)}) rnp`;
 
-var distinctToOnlyAddrs = `
+/* email addresses that appear only as recipients, never as sender */
+var distinctToOnlyAddrs = (ctx) => `
    SELECT *
-   FROM (${distinctToAddrs}) minus 
-    (${distinctFromAddrs})`;
+   FROM (${distinctToAddrs(ctx)}) minus 
+    (${distinctFromAddrs(ctx)})`;
 
-var toOnlyNamePairs =`
+/* name pairs of recipients that appear only as recipients */
+var toOnlyNamePairs = (ctx) => `
    SELECT rnp.*
-   FROM (${distinctToOnlyAddrs}) toa
-   JOIN (${recipientNamePairs}) rnp ON toa.emailAddress = rnp.emailAddress`;
+   FROM (${distinctToOnlyAddrs(ctx)}) toa
+   JOIN (${recipientNamePairs(ctx)}) rnp ON toa.emailAddress = rnp.emailAddress`;
 
-var allNamePairs =`
+/* combine name pairs appearing in From with those appearing only as recipients.
+ *
+ * Because we previously removed FromAddrs from toOnly name pairs, we ensure
+ * that each pair is distinct in this set, and we (deliberately) favor
+ * real names as they appear in From: over their appearance as recipients
+ */
+var allNamePairs = (ctx) => `
    SELECT *
-   FROM (${fromAddressNamePairs})
-   UNION (${toOnlyNamePairs})`;
+   FROM (${fromAddressNamePairs(ctx)})
+   UNION (${toOnlyNamePairs(ctx)})`;
 
 /* N.B.!  Critical to use row_number() rather than rank() here to ensure
  * we get a total order, not a partial order.
@@ -183,11 +215,11 @@ var allNamePairs =`
  * dups in our correspondent tables.
  * Note: not currently used in constructing correspondent tables
  */
-var rankedAllNamePairs =`
+var rankedAllNamePairs = (ctx) => `
   SELECT anp.*,
         row_number() over (partition BY emailAddress
                      ORDER BY addrNameMessageCount DESC,correspondentName) AS rank
-  FROM (${allNamePairs}) anp
+  FROM (${allNamePairs(ctx)}) anp
   ORDER BY anp.emailAddress,rank`;
 
 /* 
@@ -205,10 +237,10 @@ var rankedAllNamePairs =`
  /* email addresses (in canonical form) of recipients of messages
   * from any of a set of email addresses
   */
-var userRecipients = (addrs) => `
+var userRecipients = (ctx,addrs) => `
    SELECT LOWER(r.recipientEmailAddress) as userRecipientEmailAddress
-   FROM messages m
-   JOIN recipients r ON m.messageId = r.messageId
+   FROM ${messages_view(ctx)} m
+   JOIN ${recipients_view(ctx)} r ON m.messageId = r.messageId
    WHERE m.fromEmailAddress IN (${quotedList(addrs)})
    GROUP BY userRecipientEmailAddress
    ORDER BY userRecipientEmailAddress`;
@@ -218,12 +250,12 @@ var userRecipients = (addrs) => `
  * rank() was assigning the same rank in the case of ties, leading to
  * dups in our correspondent tables.
  */
-var rankedNamePairs = (addrs) => `
+var rankedNamePairs = (ctx,addrs) => `
   SELECT AllNamePairs.*,
           row_number() over (partition BY emailAddress
                        ORDER BY addrNameMessageCount DESC,correspondentName) AS rank
-   FROM (${allNamePairs}) AllNamePairs,
-        (${userRecipients(addrs)}) MyRecipients
+   FROM (${allNamePairs(ctx)}) AllNamePairs,
+        (${userRecipients(ctx,addrs)}) MyRecipients
    WHERE AllNamePairs.emailAddress=MyRecipients.userRecipientEmailAddress
    ORDER BY AllNamePairs.emailAddress, rank`;
 
@@ -232,6 +264,7 @@ var rankedNamePairs = (addrs) => `
 var userNameMappings = function (name,addrs) {
   var mkRow = (ea) => `select '${ea}' as emailAddress,'${name}' as correspondentName`;
 
+  debugger;
   var rows = addrs.map(mkRow);
 
   var litTable = rows.join('\nunion all\n');
@@ -239,45 +272,46 @@ var userNameMappings = function (name,addrs) {
   return litTable;
 }
 
-var bestCorrespondentNames = (name,addrs) => `
+var bestCorrespondentNames = (ctx,name,addrs) => `
    ( ${userNameMappings(name,addrs)} )
    union all 
    ( SELECT emailAddress,correspondentName
-   FROM (${rankedNamePairs(addrs)}) RankedNamePairs
+   FROM (${rankedNamePairs(ctx,addrs)}) RankedNamePairs
    WHERE rank=1
    AND emailAddress not in (${quotedList(addrs)})
    ORDER BY emailAddress,
             correspondentName )`;
 
-var distinctNamesList = (name,addrs) => `
+var distinctNamesList = (ctx,name,addrs) => `
     SELECT DISTINCT correspondentName
-    FROM (${bestCorrespondentNames(name,addrs)}) bcn`;
+    FROM (${bestCorrespondentNames(ctx,name,addrs)}) bcn`;
 
 // query that will be used to construct the correspondentNames table:
-var correspondentNames = (name,addrs) => `
+// We give this this explicitly 'Query' suffix to distinguish it from the corresponding table/view
+var correspondentNamesQuery = (ctx,name,addrs) => `
     SELECT correspondentName,
     ROW_NUMBER() OVER (ORDER BY correspondentName) AS correspondentId
-    FROM (${distinctNamesList(name,addrs)}) dnl`;
+    FROM (${distinctNamesList(ctx,name,addrs)}) dnl`;
 
 // query that will be used to construct correspondentEmails table
 // Note: This must refer to the real correspondentNames table
 // since the row IDs assigned to correspondentNames can be
 // non-deterministic, since it is only a partial order
-var correspondentEmails = (name,addrs) => `
+var correspondentEmailsQuery = (ctx,name,addrs) => `
   SELECT bcn.emailAddress,
          cn.correspondentId
-  FROM (${bestCorrespondentNames(name,addrs)}) bcn,
-       CorrespondentNames cn
+  FROM (${bestCorrespondentNames(ctx,name,addrs)}) bcn,
+       ${correspondentNames_rel(ctx)} cn
   WHERE bcn.correspondentName=cn.correspondentName`;
 
 // generate the SQL to rebuild the correspondent tables:
-var rebuildCorrespondentTables = (name,addrs) => `
-  drop table if exists correspondentNames cascade;
-  drop table if exists correspondentEmails cascade;
-  create table correspondentNames as 
-  ${correspondentNames(name,addrs)};
-  create table correspondentEmails as
-  ${correspondentEmails(name,addrs)};
+var rebuildCorrespondentTables = (ctx,name,addrs) => `
+  drop table if exists ${correspondentNames_rel(ctx)} cascade;
+  drop table if exists ${correspondentEmails_rel(ctx)} cascade;
+  create table ${correspondentNames_rel(ctx)} as 
+  ${correspondentNamesQuery(ctx,name,addrs)};
+  create table ${correspondentEmails_rel(ctx)} as
+  ${correspondentEmailsQuery(ctx,name,addrs)};
 `;
 
 
@@ -289,18 +323,19 @@ var rebuildCorrespondentTables = (name,addrs) => `
  * and fromCorrespondentName
  * columns
  */
-var createCIDMessagesView=`
-  create view CIDMessages as
+var cidMessages = (ctx) => `CIDMessages_${ctx.user_id}`;
+
+var createCIDMessagesView = (ctx) => `
+  create or replace view ${cidMessages(ctx)} as
   SELECT m.*,
       ce.correspondentId as fromCorrespondentId,
       cn.correspondentName as fromCorrespondentName
   FROM
-      messages m,
-      CorrespondentEmails ce,
-      correspondentNames cn
+      ${messages_view(ctx)} m,
+      ${correspondentEmails_rel(ctx)} ce,
+      ${correspondentNames_rel(ctx)} cn
   WHERE LOWER(m.fromEmailAddress)=LOWER(ce.emailAddress)
   AND ce.correspondentId=cn.correspondentId`;
-
 
 /*
  * Join of CIDMessages view with recipients table
@@ -308,8 +343,10 @@ var createCIDMessagesView=`
  * IDs for sender and all recipients.
  */
 
-var createCIDMessagesRecipients=` 
-  create view CIDMessagesRecipients as 
+var cidMessagesRecipients = (ctx) => `CIDMessagesRecipients_${ctx.user_id}`;
+
+var createCIDMessagesRecipients = (ctx) => ` 
+  create or replace view ${cidMessagesRecipients(ctx)} as 
   SELECT cm.*,
       r.recipientRealName,
       r.recipientEmailAddress,
@@ -317,10 +354,10 @@ var createCIDMessagesRecipients=`
       re.correspondentId as recipientCorrespondentId,
       rn.correspondentName as recipientCorrespondentName
   FROM
-      CIDMessages cm,
-      recipients r,
-      CorrespondentEmails re,
-      correspondentNames rn
+      ${cidMessages(ctx)} cm,
+      ${recipients_view(ctx)} r,
+      ${correspondentEmails_rel(ctx)} re,
+      ${correspondentNames_rel(ctx)} rn
   WHERE cm.messageId=r.messageId
   AND LOWER(r.recipientEmailAddress)=LOWER(re.emailAddress)
   AND re.correspondentId=rn.correspondentId`
@@ -332,20 +369,22 @@ var createCIDMessagesRecipients=`
  * Eliminates some messages from correspondents to mailing lists
  * that both happen to be on.
  */
-var createDirectToUserMessages = (name) => `
-  CREATE VIEW DirectToUserMessages AS 
+var directToUserMessages = (ctx) => `DirectToUserMessages_${ctx.user_id}`
+
+var createDirectToUserMessages = (ctx,name) => `
+  CREATE VIEW ${directToUserMessages(ctx)} AS 
   WITH ToCorrespondent AS
-    (${correspondentFromName(name)}),
+    (${correspondentFromName(ctx,name)}),
               TargetMessageIDs AS
     (SELECT DISTINCT messageId
-     FROM CIDMessagesRecipients cmr,
+     FROM ${cidMessagesRecipients(ctx)} cmr,
                                 ToCorrespondent
      WHERE cmr.recipientCorrespondentId=ToCorrespondent.correspondentId
      AND cmr.fromCorrespondentId<>ToCorrespondent.correspondentId /* skip messages from user */
      ),
               TargetMessages AS
     (SELECT cim.*
-     FROM CIDMessages cim,
+     FROM ${cidMessages(ctx)} cim,
                       TargetMessageIDs
      WHERE cim.messageId=TargetMessageIDs.messageId)
   SELECT *
@@ -359,13 +398,15 @@ var createDirectToUserMessages = (name) => `
  * We expose CIDMessagesRecipients rather than CIDMessages because
  * the correspondent IDs of the recipient will almost always be of interest.
  */
-var createFromUserMessagesRecips = (name) => `
-  create view FromUserCIDMessagesRecipients as
+var fromUserCIDMessagesRecipients = (ctx) => `FromUserCIDMessagesRecipients_${ctx.user_id}`
+
+var createFromUserMessagesRecips = (ctx,name) => `
+  create view ${fromUserCIDMessagesRecipients(ctx)} as
   WITH UserCorrespondent AS
-    (${correspondentFromName(name)}),
+    (${correspondentFromName(ctx,name)}),
     TargetMessagesRecipients AS
   (SELECT cmr.*
-   FROM CIDMessagesRecipients cmr,
+   FROM ${cidMessagesRecipients(ctx)} cmr,
                             UserCorrespondent
    WHERE cmr.fromCorrespondentId=UserCorrespondent.correspondentId
    AND cmr.recipientCorrespondentId<>UserCorrespondent.correspondentId
@@ -374,7 +415,6 @@ var createFromUserMessagesRecips = (name) => `
   from TargetMessagesRecipients
   order by received desc`;
 
-
 /*
  * Number of messages per week sent and received with a given
  * correspondent.
@@ -382,43 +422,43 @@ var createFromUserMessagesRecips = (name) => `
  * weekly rates.
  */
 
-var messagesSentToCorrespondentPerDay = (cnm) => `
+var messagesSentToCorrespondentPerDay = (ctx,cnm) => `
   select 
       date(received) as dt,
       count(*) as messagesSent
-  from FromUserCIDMessagesRecipients
+  from ${fromUserCIDMessagesRecipients(ctx)}
   where recipientCorrespondentName='${cnm}'
   group by dt`;
 
-var messagesReceivedFromCorrespondentPerDay = (cnm) => `
+var messagesReceivedFromCorrespondentPerDay = (ctx,cnm) => `
   select 
       date(received) as dt,
       count(*) as messagesReceived
-  from DirectToUserMessages
+  from ${directToUserMessages(ctx)}
   where fromCorrespondentName='${cnm}'
   group by dt`;
 
-var messagesExchangedWithCorrespondentPerDay = (cnm) => `
+var messagesExchangedWithCorrespondentPerDay = (ctx,cnm) => `
    SELECT COALESCE(rmc.dt,smc.dt) AS dt,
           COALESCE(rmc.messagesReceived,0) AS messagesReceived,
           COALESCE(smc.messagesSent,0) AS messagesSent
-   FROM (${messagesReceivedFromCorrespondentPerDay(cnm)}) rmc
-   FULL OUTER JOIN (${messagesSentToCorrespondentPerDay(cnm)}) smc ON rmc.dt=smc.dt
+   FROM (${messagesReceivedFromCorrespondentPerDay(ctx,cnm)}) rmc
+   FULL OUTER JOIN (${messagesSentToCorrespondentPerDay(ctx,cnm)}) smc ON rmc.dt=smc.dt
    order by dt`;
 
-var messagesExchangedWithCorrespondentPerMonth = (qp) => `
+var messagesExchangedWithCorrespondentPerMonth = (ctx,qp) => `
   WITH RawMPM AS
   (SELECT year,month,
           sum(messagesReceived) as messagesReceived,
           sum(messagesSent) as messagesSent
-   FROM (${messagesExchangedWithCorrespondentPerDay(qp.correspondent_name)}) src,
+   FROM (${messagesExchangedWithCorrespondentPerDay(ctx,qp.correspondent_name)}) src,
                     calendar_table c
    WHERE src.dt = c.dt
    GROUP BY year,month),
   StartEndDates AS
   (SELECT min(dt) AS MinDate,
           max(dt) AS MaxDate
-   FROM (${messagesExchangedWithCorrespondentPerDay(qp.correspondent_name)})),
+   FROM (${messagesExchangedWithCorrespondentPerDay(ctx,qp.correspondent_name)})),
   MonthEndDates AS
   (SELECT ct.year,ct.month,max(dt) AS dt
    FROM calendar_table ct,
@@ -446,6 +486,7 @@ ORDER BY dt`;
    * Ordinal week numbers are simpler and clearer, if slightly more challenging to eyeball debug.
    */
 
+module.exports.queryContext = queryContext;
 module.exports.fromAddressNamePairs = fromAddressNamePairs;
 module.exports.rawMessagesCount = rawMessagesCount;
 module.exports.topCorrespondents = topCorrespondents;
@@ -458,10 +499,10 @@ module.exports.allNamePairs = allNamePairs;
 module.exports.rankedAllNamePairs = rankedAllNamePairs;
 module.exports.userRecipients = userRecipients;
 module.exports.bestCorrespondentNames = bestCorrespondentNames;
-module.exports.correspondentEmails = correspondentEmails;
+module.exports.correspondentEmailsQuery = correspondentEmailsQuery;
 module.exports.rankedNamePairs = rankedNamePairs;
 module.exports.distinctNamesList = distinctNamesList;
-module.exports.correspondentNames = correspondentNames;
+module.exports.correspondentNamesQuery = correspondentNamesQuery;
 module.exports.rebuildCorrespondentTables = rebuildCorrespondentTables;
 module.exports.createCIDMessagesView = createCIDMessagesView;
 module.exports.createCIDMessagesRecipients = createCIDMessagesRecipients;
@@ -472,3 +513,7 @@ module.exports.messagesExchangedWithCorrespondentPerMonth = messagesExchangedWit
 module.exports.allCorrespondents = allCorrespondents;
 module.exports.commaFromRealNames = commaFromRealNames;
 module.exports.recipientNamePairs = recipientNamePairs;
+module.exports.messages_view = messages_view;
+module.exports.recipients_view = messages_view;
+module.exports.correspondentNames_rel = correspondentNames_rel;
+module.exports.correspondentEmails_rel = correspondentEmails_rel;

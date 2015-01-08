@@ -10,7 +10,7 @@ var pg = require('pg');
 var queries = require('../../analytics_db/build/js/inbox_queries');
 var Q = require('q');
 
-var conString = process.env.AWS_REDSHIFT_CONN_STRING;
+var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
 
 /* sanitize query parameters: */
 function sanitizeParams(params) {
@@ -30,16 +30,17 @@ function sanitizeParams(params) {
 
 /* Run a query against IA data warehouse */
 
-function runInboxQuery(queryTemplate, queryParams) {
+function runInboxQuery(user,queryTemplate, queryParams) {
     var deferred = Q.defer();
 
-    var query;
-    if (typeof queryTemplate === 'function') {
-        var saneParams = sanitizeParams(queryParams);
-        query = queryTemplate.apply(null, [saneParams]);
-    } else {
-        query = queryTemplate;
-    }
+    var ctx = queries.queryContext({user_id: user.id});
+    var saneParams = [ctx];
+    if (_.keys(queryParams).length > 0)
+        saneParams.push( sanitizeParams(queryParams) );
+
+    var query = queryTemplate.apply(null, saneParams);
+
+    console.log("runInboxQuery: \n", query);
 
     pg.connect(conString, function(err, client, done) {
         function runQuery(query) {
@@ -76,7 +77,7 @@ function getQuery(req,responseHandler) {
 
     var queryName = req.params.queryName;
 
-    console.log("getQuery: req.query: ", req.query);
+    console.log("getQuery: queryName: ", queryName, "req.query: ", req.query);
 
     var queryTemplate = queries[queryName];
 
@@ -87,7 +88,7 @@ function getQuery(req,responseHandler) {
     }
 
     console.log("running query: ", queryTemplate );
-    runInboxQuery(queryTemplate,req.query).then(function (queryRes) {
+    runInboxQuery(req.user,queryTemplate,req.query).then(function (queryRes) {
         console.log("Successfully executed query.  Got ", queryRes.rows.length, " result rows.");
         responseHandler.json(queryRes);
     },function (err) {

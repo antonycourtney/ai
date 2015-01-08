@@ -3,29 +3,28 @@
  */
 var pg = require('pg');
 var queries = require('./build/js/inbox_queries');
+var pgutils = require('./pgutils');
+var argv = require('optimist')
+    .usage('Usage: $0 -u [uid]')
+    .demand('u')
+    .argv;
+var ctx = queries.queryContext({user_id: argv.u});
 
-// var conString = process.env.PG_CONN_STRING;
-var conString = process.env.AWS_REDSHIFT_CONN_STRING;
+var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
 
-pg.connect(conString, function(err, client, done) {
-    function runQuery(query) {
-        console.log("Executing query: ", query, ": ");
-        client.query(query, function(err, result) {
-            //call `done()` to release the client back to the pool
-            done();
+var queries = [
+    queries.rawMessagesCount(ctx),
+    queries.topCorrespondents(ctx)
+];
 
-            if(err) {
-                return console.error('error running query', err);
-            }
-            console.log("\n==>");
-            console.log(result.rows);
-            //output: 1
-        });
-    }
+var queryPromise = pgutils.qpg(conString,pgutils.mkQuerySequence(queries));
 
-    if(err) {
-        return console.error('error fetching client from pool', err);
-    }
-    runQuery(queries.rawMessagesCount);
-    runQuery(queries.topCorrespondents);
+queryPromise.then(function (state) {
+    var resultRows = state.results.map(function (res) { return res.rows; } );
+    console.log("===> ", resultRows);
+    return null;
+    pg.end();
+},function (err) {
+    console.log("\n\n*** Error executing query: \n", err, "\n", err.stack);
+    pg.end();
 });
