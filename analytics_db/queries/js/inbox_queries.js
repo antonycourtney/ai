@@ -71,15 +71,14 @@ var messagesExchangedCountPerCorrespondentPerDay = (ctx) => `
     (${messagesReceivedCountPerCorrespondentPerDay(ctx)}) mr 
       on ms.dt = mr.dt and ms.correspondentId=mr.correspondentId`;
 
-// TODO: make start date a parameter!
-var correspondentMessagesExchangedSinceDate = (ctx) => `
+var correspondentMessagesExchangedSinceDate = (ctx,startDate) => `
   select correspondentId,
          correspondentName,
          sum(messagesSent) as messagesSent,
          sum(messagesReceived) as messagesReceived,
          sum(MessagesExchanged) as messagesExchanged
   from (${messagesExchangedCountPerCorrespondentPerDay(ctx)})
-  where dt >= DATE('2013-01-01')
+  where dt >= DATE('${startDate}')
   group by correspondentId,correspondentName`;
 
 var correspondentLastReceived = (ctx) => `
@@ -96,13 +95,13 @@ var correspondentLastSent = (ctx) => `
     from ${fromUserCIDMessagesRecipients(ctx)} fu
     group by RecipientCorrespondentID,RecipientCorrespondentName`;
 
-var topCorrespondents = (ctx) => `
+var topCorrespondents = (ctx,qp) => `
   select mx.correspondentName,
          messagesSent,messagesReceived,messagesExchanged,
          case when lmr.lastReceived > lms.lastSent then lmr.lastReceived
               else lms.lastSent
          end as lastContact
-  from (${correspondentMessagesExchangedSinceDate(ctx)}) mx,
+  from (${correspondentMessagesExchangedSinceDate(ctx,qp.start_date)}) mx,
     (${correspondentLastReceived(ctx)}) lmr,
     (${correspondentLastSent(ctx)}) lms
   where messagesSent > 5  
@@ -117,7 +116,7 @@ var correspondentFromName = (ctx,nm) => `
   where cn.correspondentName='${nm}'`
 
 var directToUserMessagesFromCorrespondentName = (ctx,qp) => `
-select messageId,received,subject
+select messageId,received,substring(subject,0,96) as subject
 from ${directToUserMessages(ctx)}
 where fromCorrespondentName='${qp.correspondent_name}'
 order by received desc`;

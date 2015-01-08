@@ -10,6 +10,7 @@ var _ = require('lodash');
 var React = require('react');
 var Q = require('q');
 var $ = require('jquery');
+var moment = require('moment');
 
 // Flux stuff:
 
@@ -78,8 +79,8 @@ var HomeDashboard = React.createClass({
         };
     },
 
-    getQueryResult: function(queryName) {
-        return this.state.queryResults[queryClient.queryKey(queryName)];
+    getQueryResult: function(queryName,queryParams) {
+        return this.state.queryResults[queryClient.queryKey(queryName,queryParams)];
     },
 
     render: function() {
@@ -89,17 +90,20 @@ var HomeDashboard = React.createClass({
                     <IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
                 </div>            
                 <div className="col-md-10">
-                    <components.QueryResultsPanel panelHeading="Your Top Correspondents" 
-                        queryResult={this.getQueryResult('topCorrespondents')} />
+                    <components.QueryResultsPanel panelHeading="Your Top Correspondents (Window: Past 1 Year)" 
+                        queryResult={this.getQueryResult('topCorrespondents', this.getQueryParams() )} />
                 </div>
             </div>
             );
     },
 
+    getQueryParams: function() {
+        return { start_date: this.props.startDate};
+    },
+
     componentDidMount: function() {
         var acts = this.getFlux().actions;
-        console.log("componentDidMount: actions: ", acts);
-        this.getFlux().actions.evalQuery('topCorrespondents');
+        this.getFlux().actions.evalQuery('topCorrespondents', this.getQueryParams());
     }
 
 });
@@ -142,10 +146,10 @@ function main() {
         }
     });
 
-    console.log("Hello, I am the IA home page!");
+    var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
 
     var homeDashboard = React.renderComponent(
-        <HomeDashboard flux={flux}/>,
+        <HomeDashboard flux={flux} startDate={startDate}/>,
         document.getElementById('main-region')
     );
 
