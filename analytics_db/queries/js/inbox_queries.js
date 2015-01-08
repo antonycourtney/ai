@@ -19,6 +19,14 @@ function queryContext(options) {
 var messages_view = (ctx) => `messages_v_${ctx.user_id}`;
 var recipients_view = (ctx) => `recipients_v_${ctx.user_id}`;
 
+/*
+ * create the base views on the messages and recipients tables, and grant access to ai_frontend
+ */
+var createBaseViews = (ctx) => `
+  create or replace view ${messages_view(ctx)} as select * from messages where user_id=${ctx.user_id};
+  create or replace view ${recipients_view(ctx)} as select * from recipients where user_id=${ctx.user_id};
+  grant select on ${messages_view(ctx)},${recipients_view(ctx)} to ai_frontend`;
+
 var rawMessagesCount = (ctx) => `
 select count(*)
 from ${messages_view(ctx)}`;
@@ -517,3 +525,4 @@ module.exports.messages_view = messages_view;
 module.exports.recipients_view = messages_view;
 module.exports.correspondentNames_rel = correspondentNames_rel;
 module.exports.correspondentEmails_rel = correspondentEmails_rel;
+module.exports.createBaseViews = createBaseViews;

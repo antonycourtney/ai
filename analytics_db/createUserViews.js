@@ -1,5 +1,6 @@
 /*
- * rebuild derived tables and views on RedShift
+ * build base views for a user, and grant access to frontend.
+ * Note: This will run as awsuser, NOT as ai_frontend!
  */
 'use strict';
 
@@ -15,18 +16,10 @@ var argv = require('optimist')
     .argv;
 var ctx = queries.queryContext({user_id: argv.u});
 
-var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
-
-var userEmailAddrs = process.env.TEST_USER_ADDRS.split(',');
-var userRealName = process.env.TEST_USER_REAL_NAME;
-assert(userRealName,"TEST_USER_REAL_NAME env var must be defined");
+var conString = process.env.AWS_REDSHIFT_CONN_STRING;
 
 var queries = ['vacuum',
-    queries.rebuildCorrespondentTables(ctx,userRealName,userEmailAddrs),
-    queries.createCIDMessagesView(ctx), 
-    queries.createCIDMessagesRecipients(ctx),
-    queries.createDirectToUserMessages(ctx,userRealName),
-    queries.createFromUserMessagesRecips(ctx,userRealName),
+    queries.createBaseViews(ctx),
     'vacuum; analyze'
 ];
 
