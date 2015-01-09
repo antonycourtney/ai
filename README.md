@@ -74,7 +74,12 @@ Follow the detailed instructions in [analytics_db/README.md](analytics_db/README
 
 ### Install JavaScript Package Dependencies
 
+Most of our JavaScript dependencies (both server-side and client-side) are from npm.  Unfortunately same packages (like Plottable) are currently only available in bower. Perform the following steps to install all packages:
+
     $ npm install
+    $ bower install
+
+**Dev Note:** When adding new JavaScript third party packages, use the npm package if at all possible.
 
 ## Building and Running the Front-End Server
 

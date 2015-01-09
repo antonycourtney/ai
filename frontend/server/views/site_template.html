@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/public/css/bootstrap.min.css">
     <link rel="stylesheet" href="/public/css/bootstrap-theme.min.css">
     <link rel="stylesheet" href="/public/css/bootstrap.css" />
+    <link rel="stylesheet" href="/public/css/plottable.css" />
     <style>
     body {
         padding-top: 80px;
@@ -70,11 +71,8 @@
 -->
     <script src="/public/js/jquery.min.js"></script>
     <script src="/public/js/bootstrap.min.js"></script>
-    <!-- Google Charts:  TODO: Get rid of this once we are only using d3 charts -->
-    <script type="text/javascript" src="https://www.google.com/jsapi"></script>   
-    <script type="text/javascript">
-      google.load("visualization", "1", {packages:["corechart"]});
-    </script> 
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="/public/js/plottable.js"></script>
     {{{pageScriptLoad}}}
   </body>
 </html>

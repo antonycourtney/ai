@@ -26,116 +26,126 @@ var FluxMixin = Fluxxor.FluxMixin(React),
 
 /* temporary hack to render chart using Google Charts */
 function renderChart(queryRes) {
-    var columnNames = _.pluck(queryRes.result.fields,'name');
-    var chartRows = queryRes.result.rows;
-    var chartData = [ columnNames ];
-    chartData = chartData.concat(chartRows);
-    console.log("chartData: ", chartData);
+  var chartRows = queryRes.result.rows;
+  console.log("chartRows: ", chartRows);
 
-    var dataTable = new google.visualization.DataTable(
-        {
-            cols: [{id: 'dt', label: 'Date', type: 'date'},
-                   {id: 'messagesReceived', label: 'Messages Received', type: 'number'}, 
-                   {id: 'messagesSent', label: 'Messages Sent', type: 'number'}]
-        });
-    console.log("dataTable: ", dataTable);
+  // Let's split this into two series, one each for messages sent and messages received:
+  var messagesSent = chartRows.map(function (r) { return {dt: r.dt, messageCount: r.messagessent, label: "Messages Sent" }; });
+  var messagesReceived = chartRows.map(function (r) { return {dt: r.dt, messageCount: r.messagesreceived, label: "Messages Received" }; });
 
-    var dataRows = chartRows.map(function (r) { return [r.dt, Number.parseInt(r.messagesreceived), Number.parseInt(r.messagessent)]; });
 
-    dataTable.addRows(dataRows);
-//    var data = google.visualization.arrayToDataTable(chartData);
-    var options = {
-      title: 'Messages Exchanged',
-      orientation: 'horizontal',
-      bar: { groupWidth: '80%' },
-      isStacked: true
-      /* curveType: 'function' */
-    };
 
-    // Let's try a bar chart instead of a line chart:
-    // var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
-    var chart = new google.visualization.BarChart(document.getElementById('chart_div'));
+  function getXDataValue(d) { return d.dt; }
+  function getYDataValue(d) { return d.messageCount; }
 
-    console.log("Chart object: ", chart);
+  var xScale     = new Plottable.Scale.Time();
+  var yScale     = new Plottable.Scale.Linear();
+  var colorScale = new Plottable.Scale.Color();
 
-    /*
-    var dataView = new google.visualization.DataView(dataTable);
-    dataView.setColumns([{calc: function(data, row) { return data.getFormattedValue(row, 0); }, type:'string'}, 1]);
-    */
-    chart.draw(dataTable, options);
+  // Plot Components
+  var title  = new Plottable.Component.TitleLabel("Messages Exchanged", "horizontal" );
+  var legend = new Plottable.Component.Legend(colorScale);
+  legend.maxEntriesPerRow(2);
+  var yLabel = new Plottable.Component.Label("Messages Exchanged", "left");
+  var xAxis  = new Plottable.Axis.Time(xScale, "bottom");
+  var yAxis  = new Plottable.Axis.Numeric(yScale, "left");
+  var lines  = new Plottable.Component.Gridlines(null, yScale);
+  var plot   = new Plottable.Plot.StackedBar(xScale, yScale)
+    .project("x", getXDataValue, xScale)
+    .project("y", getYDataValue, yScale)
+    .project("fill", function(d){return d.label}, colorScale)
+    .addDataset(messagesSent)
+    .addDataset(messagesReceived);
+
+  var gridlines = new Plottable.Component.Gridlines(xScale, yScale);
+  var center    = new Plottable.Component.Group([plot]).merge(lines).merge(legend);
+  var table     = new Plottable.Component.Table([[yLabel, yAxis, center], [null, null, xAxis]]).renderTo(d3.select("svg#chart"));
+  var panZoom   = new Plottable.Interaction.PanZoom(xScale, null);
+  center.registerInteraction(panZoom);
+
+/*
+  // Layout and render
+  new Plottable.Component.Table([
+    [null,    null, title],
+    [null,    null, legend],
+    [yLabel, yAxis, lines.merge(plot)],
+    [null,    null, xAxis]
+  ])
+  .renderTo("svg#chart");
+*/
 }
 
 var CorrPage = React.createClass({
-    mixins: [FluxMixin, StoreWatchMixin("QueryStore")],    
+  mixins: [FluxMixin, StoreWatchMixin("QueryStore")],    
 
-    getInitialState: function() {
-        return {};
-    },
+  getInitialState: function() {
+    return {};
+  },
 
-    getStateFromFlux: function() {
-        var store = this.getFlux().store("QueryStore");
+  getStateFromFlux: function() {
+    var store = this.getFlux().store("QueryStore");
 
-        return {
-            queryResults: store.queryResults
-        };
-    },
+    return {
+      queryResults: store.queryResults
+    };
+  },
 
-    getQueryParams: function() {
-        return { correspondent_name: this.props.correspondentName };
-    },
+  getQueryParams: function() {
+    return { correspondent_name: this.props.correspondentName };
+  },
 
-    getQueryResult: function(queryName,queryParams) {
-        return this.state.queryResults[queryClient.queryKey(queryName,queryParams)];
-    },
+  getQueryResult: function(queryName,queryParams) {
+    return this.state.queryResults[queryClient.queryKey(queryName,queryParams)];
+  },
 
-    render: function() {
-        var chartRes=this.getQueryResult('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());
-        console.log("render: chartRes: ", chartRes);
-        if (chartRes) {
-            try {
-                renderChart(chartRes);
-            } catch (e) {
-                console.log("caught exception rendering chart: ", e, e.stack);
-            }
-        }
-        return (
-            <div className="row">
-                <div className="col-md-12">
-                    <components.QueryResultsPanel panelHeading={"Messages From " + this.props.correspondentName + " To You"}
-                        queryResult={this.getQueryResult('directToUserMessagesFromCorrespondentName', this.getQueryParams())} />
-                </div>
-            </div>
-            );
-    },
-
-    componentDidMount: function() {
-        var acts = this.getFlux().actions;
-        console.log("componentDidMount: actions: ", acts);
-        this.getFlux().actions.evalQuery('directToUserMessagesFromCorrespondentName', this.getQueryParams());
-        this.getFlux().actions.evalQuery('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());        
+  render: function() {
+    var chartRes=this.getQueryResult('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());
+    console.log("render: chartRes: ", chartRes);
+    if (chartRes) {
+      try {
+        renderChart(chartRes);
+      } catch (e) {
+        console.log("caught exception rendering chart: ", e, e.stack);
+      }
     }
+    return (
+      <div className="row">
+        <div className="col-md-12">
+          <components.QueryResultsPanel panelHeading={"Messages From " + this.props.correspondentName + " To You"}
+            queryResult={this.getQueryResult('directToUserMessagesFromCorrespondentName', this.getQueryParams())} />
+        </div>
+      </div>
+      );
+  },
+
+  componentDidMount: function() {
+    var acts = this.getFlux().actions;
+    console.log("componentDidMount: actions: ", acts);
+    this.getFlux().actions.evalQuery('directToUserMessagesFromCorrespondentName', this.getQueryParams());
+    this.getFlux().actions.evalQuery('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());        
+  }
 
 });
 
 function main() {
-    console.log("correspondentPage!  pageParams = ", window.pageParams);
+  console.log("correspondentPage!  pageParams = ", window.pageParams);
 
-    var stores = {
-        QueryStore: new QueryStore()
-    };
+  var stores = {
+    QueryStore: new QueryStore()
+  };
 
-    var flux = new Fluxxor.Flux(stores, actions);
+  var flux = new Fluxxor.Flux(stores, actions);
 
-    flux.on("dispatch", function(type, payload) {
-        if (console && console.log) {
-            console.log("[Dispatch]", type, payload);
-        }
-    });
+  flux.on("dispatch", function(type, payload) {
+    if (console && console.log) {
+      console.log("[Dispatch]", type, payload);
+    }
+  });
 
-    var corrPage = React.renderComponent(
-        <CorrPage flux={flux} correspondentName={window.pageParams.correspondent_name} />,
-        document.getElementById('main-region')
-    );
+  var corrPage = React.renderComponent(
+    <CorrPage flux={flux} correspondentName={window.pageParams.correspondent_name} />,
+    document.getElementById('main-region')
+  );
 }
 
 main();

@@ -49,8 +49,21 @@ gulp.task('build_bootstrap', function() {
         .pipe(gulp.dest('build'));
 });
 
+// Copy plottable files (from bower_components):
+gulp.task('plottable_css', function() {
+    return gulp.src('../bower_components/plottable/*.css')
+        .pipe(gulp.dest('build/css'));
+});
+
+gulp.task('plottable_js', function() {
+    return gulp.src('../bower_components/plottable/*.js')
+        .pipe(gulp.dest('build/js'));
+});
+
+gulp.task('build_plottable', ['plottable_css', 'plottable_js']);
+
 // build 3rd dependent libs:
-gulp.task('build_deplibs',['build_jquery','build_bootstrap'], function() {
+gulp.task('build_deplibs',['build_jquery','build_bootstrap','build_plottable'], function() {
 });
 
 gulp.task('build_javascript', function() {
@@ -59,7 +72,7 @@ gulp.task('build_javascript', function() {
 
     // Take every JS file in ./client/js
     return gulp.src('client/js/**/*.js')
-        .pipe(debug())
+        // .pipe(debug())
         // Turn their React JSX syntax into regular javascript
         .pipe(react())
         // Output each one of those --> ./build/js/ directory
