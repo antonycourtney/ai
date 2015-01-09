@@ -485,6 +485,72 @@ SELECT mpm.*
 FROM mpm
 ORDER BY dt`;
 
+var dbDateRange = (ctx) => `
+  SELECT min(date(received)) AS mindate,
+          max(date(received)) AS maxdate
+  FROM ${messages_view(ctx)}`;
+
+// final date condition just for testing during dev
+// TODO: remove or make parametric!
+var dbCalendar = (ctx) => `
+  SELECT ct.*
+  FROM calendar_table ct,
+      (${dbDateRange(ctx)}) dbDateRange
+  WHERE ct.dt >= dbDateRange.mindate
+  AND ct.dt <= dbDateRange.maxdate
+  AND ct.dt >= DATE('2014-07-01')`;
+
+var messagesExchangedFullSeries = (ctx) => `
+  WITH
+    MessagesExchangedPerDay AS
+  (${messagesExchangedCountPerCorrespondentPerDay(ctx)}), 
+  
+    AllCorrespondents AS
+  (SELECT DISTINCT correspondentId,correspondentName
+   FROM MessagesExchangedPerDay),
+  
+    CorrespondentDates AS
+  (SELECT ac.*,
+         ct.dt
+   FROM AllCorrespondents ac,
+       (${dbCalendar(ctx)}) ct)
+  
+  SELECT cd.*,
+        COALESCE(mx.messagesExchanged,0) as messagesExchanged,
+        avg(CAST(COALESCE(mx.messagesExchanged,0) AS FLOAT)) over
+        (partition by cd.correspondentId
+         order by cd.dt rows 6 preceding) as mxAverage7,
+        sum(COALESCE(mx.messagesExchanged,0)) over
+        (partition by cd.correspondentId
+         order by cd.dt rows 6 preceding) as mxTrailing7,
+        sum(COALESCE(mx.messagesExchanged,0)) over
+        (partition by cd.correspondentId
+         order by cd.dt rows 29 preceding) as mxTrailing30
+  FROM CorrespondentDates cd left outer join MessagesExchangedPerDay mx ON
+    cd.dt = mx.dt AND cd.correspondentId = mx.correspondentId AND cd.correspondentName=mx.correspondentName`;
+
+var rankedMXSeries = (ctx) => `
+  select fs.dt,fs.correspondentId,fs.correspondentName,fs.messagesExchanged,fs.mxAverage7,fs.mxTrailing7,fs.mxTrailing30,
+      rank() over
+      (partition by dt
+       order by mxTrailing30 
+      ) as dailyRank
+  from (${messagesExchangedFullSeries(ctx)}) fs`;
+
+// top ranked correspondents from MX series:
+var topRankedMXSeries = (ctx) => `
+  WITH RankedFullSeries AS
+    (${rankedMXSeries(ctx)}),
+  TopCorrespondents AS
+  (select DISTINCT correspondentId
+   from RankedFullSeries
+   where dailyRank > 1268
+  )
+  SELECT rfs.*
+  FROM RankedFullSeries rfs,TopCorrespondents tc
+  WHERE rfs.correspondentId = tc.correspondentId
+  ORDER BY correspondentId,dt,dailyRank desc`;
+
 /* TODO: messagesExchangedWithCorrespondentPerWeek */
   /* At this point we have daily counts, now just aggregate to get weekly numbers: */
   /* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
@@ -525,3 +591,8 @@ module.exports.recipients_view = messages_view;
 module.exports.correspondentNames_rel = correspondentNames_rel;
 module.exports.correspondentEmails_rel = correspondentEmails_rel;
 module.exports.createBaseViews = createBaseViews;
+module.exports.messagesExchangedCountPerCorrespondentPerDay = messagesExchangedCountPerCorrespondentPerDay;
+module.exports.dbDateRange = dbDateRange;
+module.exports.dbCalendar = dbCalendar;
+module.exports.messagesExchangedFullSeries = messagesExchangedFullSeries;
+module.exports.topRankedMXSeries = topRankedMXSeries;
