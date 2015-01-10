@@ -107,6 +107,7 @@ function browserifyPageScript(scriptBaseName) {
 browserifyPageScript('home');
 browserifyPageScript('correspondentPage');
 browserifyPageScript('allCorrespondents');
+browserifyPageScript('correspondentRankings');
 
 gulp.task('browserify', 
      scriptPageDeps,

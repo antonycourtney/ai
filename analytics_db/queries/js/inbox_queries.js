@@ -544,7 +544,7 @@ var topRankedMXSeries = (ctx) => `
   TopCorrespondents AS
   (select DISTINCT correspondentId
    from RankedFullSeries
-   where dailyRank > 1268
+   where dailyRank > 1275
   )
   SELECT rfs.*
   FROM RankedFullSeries rfs,TopCorrespondents tc

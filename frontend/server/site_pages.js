@@ -51,6 +51,11 @@ function getAllCorrespondentsPage(req, res) {
   return renderSitePage(req,res,'partials/onediv','allCorrespondents');
 }
 
+function getCorrespondentRankingsPage(req, res) {
+  return renderSitePage(req,res,'partials/correspondentRankings','correspondentRankings');
+}
+
+
 function getCorrespondentPage(req, res) {
   var correspondentName = req.params.correspondentName;
 
@@ -64,3 +69,4 @@ function getCorrespondentPage(req, res) {
 module.exports.getHomePage = getHomePage;
 module.exports.getCorrespondentPage = getCorrespondentPage;
 module.exports.getAllCorrespondentsPage = getAllCorrespondentsPage;
+module.exports.getCorrespondentRankingsPage = getCorrespondentRankingsPage;
