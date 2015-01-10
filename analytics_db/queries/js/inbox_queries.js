@@ -42,7 +42,7 @@ var correspondentEmails_rel = (ctx) => `correspondentEmails_${ctx.user_id}`
 
 var messagesSentCountPerCorrespondentPerDay = (ctx) => `
   select 
-      date(received) as dt,
+      date(coalesce(received,date)) as dt,
       recipientCorrespondentId as correspondentId,
       recipientCorrespondentName as correspondentName,
       count(*) as messagesSent
@@ -51,7 +51,7 @@ var messagesSentCountPerCorrespondentPerDay = (ctx) => `
 
 var messagesReceivedCountPerCorrespondentPerDay = (ctx) => `
   select 
-      date(received) as dt,
+      date(coalesce(received,date)) as dt,
       fromCorrespondentId as correspondentId,
       fromCorrespondentName as correspondentName,
       count(*) as messagesReceived
@@ -80,6 +80,15 @@ var correspondentMessagesExchangedSinceDate = (ctx,startDate) => `
   from (${messagesExchangedCountPerCorrespondentPerDay(ctx)})
   where dt >= DATE('${startDate}')
   group by correspondentId,correspondentName`;
+
+var correspondentHistoricalRecvSentRatio = (ctx) => `
+  select cmx.*,
+    (case cmx.messagesSent 
+     when 0 then NULL
+     else cmx.messagesReceived / cmx.messagesSent
+     end) as recvSentRatio
+  from (${correspondentMessagesExchangedSinceDate(ctx,'1980-01-01')}) cmx
+  order by recvSentRatio desc`;
 
 var correspondentLastReceived = (ctx) => `
     select FromCorrespondentId,
@@ -596,3 +605,4 @@ module.exports.dbDateRange = dbDateRange;
 module.exports.dbCalendar = dbCalendar;
 module.exports.messagesExchangedFullSeries = messagesExchangedFullSeries;
 module.exports.topRankedMXSeries = topRankedMXSeries;
+module.exports.correspondentHistoricalRecvSentRatio = correspondentHistoricalRecvSentRatio;
