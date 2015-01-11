@@ -35,6 +35,7 @@ var tu_RankedNamePairs = (ctx) => queries.rankedNamePairs(tu_EmailAddrs);
 var tu_DistinctNamesList = (ctx) => queries.distinctNamesList(ctx,tu_RealName,tu_EmailAddrs);
 var tu_CorrNames = (ctx) => queries.correspondentNamesQuery(ctx,tu_RealName,tu_EmailAddrs);
 var tu_Dups = (ctx) => findDups(['emailAddress'],'( ' + tu_CorrespondentEmails(ctx) + ' )');
+var tu_MPW = (ctx,cnm) => queries.messagesExchangedWithCorrespondentPerWeek(ctx,{correspondent_name: cnm});
 
 module.exports.tu_DistinctNamesList = tu_DistinctNamesList;
 module.exports.tu_CorrNames = tu_CorrNames;
@@ -43,3 +44,4 @@ module.exports.tu_UserRecips = tu_UserRecips;
 module.exports.tu_BestCorrespondentNames = tu_BestCorrespondentNames;
 module.exports.tu_CorrespondentEmails = tu_CorrespondentEmails;
 module.exports.tu_RankedNamePairs = tu_RankedNamePairs;
+module.exports.tu_MPW = tu_MPW;

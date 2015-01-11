@@ -50,15 +50,15 @@ function renderChart(queryRes) {
   var xAxis  = new Plottable.Axis.Time(xScale, "bottom");
   var yAxis  = new Plottable.Axis.Numeric(yScale, "left");
   var lines  = new Plottable.Component.Gridlines(null, yScale);
-/*
   var plot   = new Plottable.Plot.StackedBar(xScale, yScale)
-    .project("x", getXDataValue, xScale)
-    .project("y", getYDataValue, yScale)
+    .project("x", "dt", xScale)
+    .project("y", "messageCount", yScale)
     .project("fill", function(d){return d.label}, colorScale)
     .addDataset(messagesSent)
     .addDataset(messagesReceived);
   var plots = [plot];
-*/
+
+/*
   var plots = [messagesSent,messagesReceived].map(function (series) {
     return new Plottable.Plot.Line(xScale, yScale)
                         .addDataset(series)
@@ -68,6 +68,7 @@ function renderChart(queryRes) {
                         .project("stroke-width", 1);
 
   });
+*/
 
   var gridlines = new Plottable.Component.Gridlines(xScale, yScale);
   var center    = new Plottable.Component.Group(plots).merge(lines).merge(legend);
@@ -111,7 +112,7 @@ var CorrPage = React.createClass({
   },
 
   render: function() {
-    var chartRes=this.getQueryResult('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());
+    var chartRes=this.getQueryResult('messagesExchangedWithCorrespondentPerWeek', this.getQueryParams());
     console.log("render: chartRes: ", chartRes);
     if (chartRes) {
       try {
@@ -134,7 +135,7 @@ var CorrPage = React.createClass({
     var acts = this.getFlux().actions;
     console.log("componentDidMount: actions: ", acts);
     this.getFlux().actions.evalQuery('directToUserMessagesFromCorrespondentName', this.getQueryParams());
-    this.getFlux().actions.evalQuery('messagesExchangedWithCorrespondentPerMonth', this.getQueryParams());        
+    this.getFlux().actions.evalQuery('messagesExchangedWithCorrespondentPerWeek', this.getQueryParams());        
   }
 
 });
