@@ -223,6 +223,8 @@ class GmailIMAPCollector:
         else:
             # Use local credentials
             self.useLocalCredentials()
+            # Use the default value for last_msg_uid when run from command line:
+            self.last_msg_uid = 1
 
         self.user_db = UserDb(args.userDbParams) 
 
@@ -559,6 +561,7 @@ class GmailIMAPCollector:
             print "No results found for message ID"
             return
         uid = data[0]
+        print "Found IMAP UID for message: ", uid
         batch_uids = [uid]
         batch_hdicts = self.fetch_batch(batch_uids)
         extractor = MessageExtractor()        
