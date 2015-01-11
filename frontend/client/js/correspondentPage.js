@@ -46,19 +46,31 @@ function renderChart(queryRes) {
   var title  = new Plottable.Component.TitleLabel("Messages Exchanged", "horizontal" );
   var legend = new Plottable.Component.Legend(colorScale);
   legend.maxEntriesPerRow(2);
-  var yLabel = new Plottable.Component.Label("Messages Exchanged", "left");
+  var yLabel = new Plottable.Component.Label("Message Count", "left");
   var xAxis  = new Plottable.Axis.Time(xScale, "bottom");
   var yAxis  = new Plottable.Axis.Numeric(yScale, "left");
   var lines  = new Plottable.Component.Gridlines(null, yScale);
+/*
   var plot   = new Plottable.Plot.StackedBar(xScale, yScale)
     .project("x", getXDataValue, xScale)
     .project("y", getYDataValue, yScale)
     .project("fill", function(d){return d.label}, colorScale)
     .addDataset(messagesSent)
     .addDataset(messagesReceived);
+  var plots = [plot];
+*/
+  var plots = [messagesSent,messagesReceived].map(function (series) {
+    return new Plottable.Plot.Line(xScale, yScale)
+                        .addDataset(series)
+                        .project("x", "dt", xScale)
+                        .project("y", "messageCount", yScale)
+                        .project("stroke", function(d){return d.label},colorScale)
+                        .project("stroke-width", 1);
+
+  });
 
   var gridlines = new Plottable.Component.Gridlines(xScale, yScale);
-  var center    = new Plottable.Component.Group([plot]).merge(lines).merge(legend);
+  var center    = new Plottable.Component.Group(plots).merge(lines).merge(legend);
   var table     = new Plottable.Component.Table([[yLabel, yAxis, center], [null, null, xAxis]]).renderTo(d3.select("svg#chart"));
   var panZoom   = new Plottable.Interaction.PanZoom(xScale, null);
   center.registerInteraction(panZoom);
