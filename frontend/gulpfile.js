@@ -28,6 +28,9 @@ var gutil = require("gulp-util");
 
 var fs = require("fs");
 
+var webpack = require("webpack");
+var webpackConfig = require("./webpack.config.js");
+
 // Delete everything inside the build directory
 gulp.task('clean', function() {
   return gulp.src(['build/*'], {read: false}).pipe(clean());
@@ -84,7 +87,7 @@ gulp.task('build_javascript', function() {
         // Then output each optimized .min.js file --> ./build/js/ directory
         .pipe(gulp.dest('build/js/'));
 });
-
+/*
 var scriptPageDeps = [];
 
 function browserifyPageScript(scriptBaseName) {
@@ -112,6 +115,7 @@ browserifyPageScript('correspondentRankings');
 gulp.task('browserify', 
      scriptPageDeps,
      function() { });
+*/
 
 gulp.task('watch', function() {
 
@@ -133,4 +137,61 @@ gulp.task('watch', function() {
     });
 });
 
-gulp.task('default', ['browserify']);
+// Build and watch cycle (another option for development)
+// Advantage: No server required, can run app from filesystem
+// Disadvantage: Requests are not blocked until bundle is available,
+//               can serve an old app on refresh
+gulp.task("build-dev", ["webpack:build-dev"], function() {
+    gulp.watch(["public/**/*","./*"], ["webpack:build-dev"]);
+});
+
+
+gulp.task("webpack:build", ["build_deplibs"], function(callback) {
+    // modify some webpack config options
+    var myConfig = Object.create(webpackConfig);
+    if (myConfig.plugins) {
+        myConfig.plugins = myConfig.plugins.concat(
+            new webpack.DefinePlugin({
+                "process.env": {
+                    // This has effect on the react lib size
+                    "NODE_ENV": JSON.stringify("production")
+                }
+            }),
+            new webpack.optimize.DedupePlugin(),
+            new webpack.optimize.UglifyJsPlugin()
+        );
+    }
+    // run webpack
+    webpack(myConfig, function(err, stats) {
+        if(err) throw new gutil.PluginError("webpack:build", err);
+        gutil.log("[webpack:build]", stats.toString({
+            colors: true
+        }));
+        callback();
+    });
+});
+
+// Production build
+gulp.task("build_js", ["webpack:build"]);
+
+// modify some webpack config options
+var myDevConfig = Object.create(webpackConfig);
+myDevConfig.devtool = "sourcemap";
+myDevConfig.debug = true;
+
+// create a single instance of the compiler to allow caching
+var devCompiler = webpack(myDevConfig);
+
+gulp.task("webpack:build-dev", ["build_deplibs"], function(callback) {
+    // run webpack
+    devCompiler.run(function(err, stats) {
+        if(err) throw new gutil.PluginError("webpack:build-dev", err);
+        gutil.log("[webpack:build-dev]", stats.toString({
+            colors: true
+        }));
+        callback();
+    });
+});
+
+
+gulp.task("default", ["build_js"] );

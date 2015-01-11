@@ -14,7 +14,7 @@ function makeScriptLoadTag(baseName,pageParams) {
     pageParams = {};
   var lines = [
     '<script>window.pageParams = ' + JSON.stringify(pageParams) + ';</script>',
-    '<script src="/public/js/' + baseName + '.build.js"></script>'
+    '<script src="/public/js/' + baseName + '.bundle.js"></script>'
   ];
   return lines.join('\n');
 } 
