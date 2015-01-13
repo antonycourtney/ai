@@ -19,6 +19,8 @@ import types
 import json
 import datetime
 
+import psycopg2
+
 from apiclient.discovery import build
 from apiclient.http import BatchHttpRequest
 from oauth2client.client import flow_from_clientsecrets, OAuth2Credentials, OAuth2WebServerFlow
@@ -210,7 +212,7 @@ class GmailIMAPCollector:
             # Extract the highest UID previously fetched from the message, if it exists
             try:
                 self.last_msg_uid = int(index_message["last_msg_uid"])
-            except Exception, e:
+            except Exception as e:
                 self.last_msg_uid = 1
 
             if (self.last_msg_uid < 1):
@@ -323,7 +325,13 @@ class GmailIMAPCollector:
     def sync(self):
 
         #
-        # Get a map of all message_ids. We do this once per run as it pulls a lot of data from Google IMAP
+        # Make sure the views have been created for this tenant
+        # The front end doesn't have adequate privileges to create these views, so they need to be created by the indexer instead
+        #
+        self.createViews(self.args.userID)
+
+        #
+        # Get a map of all message_ids. We do this once per run as it can pull a lot of data from Google IMAP
         #
         gmail_id_map = self.get_gmail_message_id_map(self.last_msg_uid) 
         num_total_messages = len(gmail_id_map)
@@ -571,3 +579,37 @@ class GmailIMAPCollector:
             else:
                 print "Extracted meta-data: ", msgMeta
         # To be continued...
+
+    def createViews(self, user_id):
+        print "checking views for user_id: ", user_id
+
+        # SELECT
+        #   count(*)
+        # FROM
+        #   pg_table_def
+        # WHERE
+        #   tablename = 'messages_v_1';
+        check_for_view = "select count(*) from pg_table_def where tablename = '%(messages_view)s';" % { 'messages_view': "messages_v_%(user_id)s" % {'user_id': user_id} }
+
+        create_view = "create or replace view %(messages_view)s as select * from messages where user_id=%(user_id)s; \
+                       create or replace view %(recipients_view)s as select * from recipients where user_id=%(user_id)s; \
+                       grant select on %(messages_view)s,%(recipients_view)s to ai_frontend;" \
+                       % {  'messages_view':"messages_v_%(user_id)s" % {'user_id': user_id},
+                            'recipients_view':"recipients_v_%(user_id)s" % {'user_id': user_id},
+                            'user_id':user_id }
+
+        # Connect to Redshift
+        conn = psycopg2.connect(host = self.args.redshiftInstance, port = self.args.redshiftPort, \
+            database = self.args.redshiftDB, user = self.args.redshiftUser, password = self.args.redshiftPwd)
+
+        cur = conn.cursor()
+
+        # check for the presence of the view
+        cur.execute(check_for_view)
+        res = cur.fetchall()
+        count = res[0][0]
+        if (count == 0):
+            # create and commit the view if necessary
+            print "creating views for user_id: ", user_id
+            cur.execute(create_view)
+            conn.commit()
