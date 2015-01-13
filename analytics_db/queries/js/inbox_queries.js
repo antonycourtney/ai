@@ -42,7 +42,7 @@ var correspondentEmails_rel = (ctx) => `correspondentEmails_${ctx.user_id}`
 
 var messagesSentCountPerCorrespondentPerDay = (ctx) => `
   select 
-      date(received) as dt,
+      date(coalesce(received,date)) as dt,
       recipientCorrespondentId as correspondentId,
       recipientCorrespondentName as correspondentName,
       count(*) as messagesSent
@@ -51,7 +51,7 @@ var messagesSentCountPerCorrespondentPerDay = (ctx) => `
 
 var messagesReceivedCountPerCorrespondentPerDay = (ctx) => `
   select 
-      date(received) as dt,
+      date(coalesce(received,date)) as dt,
       fromCorrespondentId as correspondentId,
       fromCorrespondentName as correspondentName,
       count(*) as messagesReceived
@@ -80,6 +80,15 @@ var correspondentMessagesExchangedSinceDate = (ctx,startDate) => `
   from (${messagesExchangedCountPerCorrespondentPerDay(ctx)})
   where dt >= DATE('${startDate}')
   group by correspondentId,correspondentName`;
+
+var correspondentHistoricalRecvSentRatio = (ctx) => `
+  select cmx.*,
+    (case cmx.messagesSent 
+     when 0 then NULL
+     else cmx.messagesReceived / cmx.messagesSent
+     end) as recvSentRatio
+  from (${correspondentMessagesExchangedSinceDate(ctx,'1980-01-01')}) cmx
+  order by recvSentRatio desc`;
 
 var correspondentLastReceived = (ctx) => `
     select FromCorrespondentId,
@@ -544,20 +553,50 @@ var topRankedMXSeries = (ctx) => `
   TopCorrespondents AS
   (select DISTINCT correspondentId
    from RankedFullSeries
-   where dailyRank > 1268
+   where dailyRank > 1275
   )
   SELECT rfs.*
   FROM RankedFullSeries rfs,TopCorrespondents tc
   WHERE rfs.correspondentId = tc.correspondentId
   ORDER BY correspondentId,dt,dailyRank desc`;
 
-/* TODO: messagesExchangedWithCorrespondentPerWeek */
-  /* At this point we have daily counts, now just aggregate to get weekly numbers: */
-  /* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
-   * extract function to get week numbers, which are based on ISO's week numbering, 
-   * which breaks the property that date uniquely determines (year,week).
-   * Ordinal week numbers are simpler and clearer, if slightly more challenging to eyeball debug.
-   */
+/* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
+ * extract function to get week numbers, which are based on ISO's week numbering, 
+ * which breaks the property that date uniquely determines (year,week).
+ * Ordinal week numbers are simpler and clearer, if slightly more challenging to eyeball debug.
+ */
+var messagesExchangedWithCorrespondentPerWeek = (ctx,qp) => `
+  WITH RawMPW AS
+  (SELECT year,own,
+          sum(messagesReceived) as messagesReceived,
+          sum(messagesSent) as messagesSent
+   FROM (${messagesExchangedWithCorrespondentPerDay(ctx,qp.correspondent_name)}) src,
+                    calendar_table c
+   WHERE src.dt = c.dt
+   GROUP BY year,own),
+  StartEndDates AS
+  (SELECT min(dt) AS MinDate,
+          max(dt) AS MaxDate
+   FROM (${messagesExchangedWithCorrespondentPerDay(ctx,qp.correspondent_name)})),
+  WeekEndDates AS
+  (SELECT ct.year,ct.own,max(dt) AS dt
+   FROM calendar_table ct,
+                       StartEndDates
+   WHERE ct.dt BETWEEN MinDate AND MaxDate
+   GROUP BY ct.year,ct.own),
+     MPW AS
+  (SELECT med.dt,
+          COALESCE(RawMPW.messagesReceived,0) as MessagesReceived,
+          /*avg(COALESCE(RawMPW.messagesReceived,0)) over
+            (order by dt rows between 4 preceding and current row) as avgMessagesReceived, */
+          COALESCE(RawMPW.messagesSent,0) as MessagesSent
+          /* COALESCE(RawMPW.messagesSent,0)+ COALESCE(RawMPW.messagesReceived,0) as MessagesExchanged */
+   FROM WeekEndDates med
+   LEFT OUTER JOIN RawMPW ON med.year=RawMPW.year and med.own=RawMPW.own)
+SELECT mpw.*
+FROM mpw
+ORDER BY dt`;
+
 
 module.exports.queryContext = queryContext;
 module.exports.fromAddressNamePairs = fromAddressNamePairs;
@@ -582,6 +621,7 @@ module.exports.createCIDMessagesRecipients = createCIDMessagesRecipients;
 module.exports.createDirectToUserMessages = createDirectToUserMessages;
 module.exports.createFromUserMessagesRecips = createFromUserMessagesRecips;
 module.exports.messagesExchangedWithCorrespondentPerDay = messagesExchangedWithCorrespondentPerDay;
+module.exports.messagesExchangedWithCorrespondentPerWeek = messagesExchangedWithCorrespondentPerWeek;
 module.exports.messagesExchangedWithCorrespondentPerMonth = messagesExchangedWithCorrespondentPerMonth;
 module.exports.allCorrespondents = allCorrespondents;
 module.exports.commaFromRealNames = commaFromRealNames;
@@ -596,3 +636,4 @@ module.exports.dbDateRange = dbDateRange;
 module.exports.dbCalendar = dbCalendar;
 module.exports.messagesExchangedFullSeries = messagesExchangedFullSeries;
 module.exports.topRankedMXSeries = topRankedMXSeries;
+module.exports.correspondentHistoricalRecvSentRatio = correspondentHistoricalRecvSentRatio;

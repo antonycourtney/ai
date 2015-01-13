@@ -42,6 +42,16 @@ Use the Cluster Database Properties on the "Configuration" tab of the cluster fr
 
 In your RedShift SQL client, execute the commands in [createTables.sql](analytics_db/createTables.sql)
 
+### Create ai_indexer, ai_frontend Account on RedShift
+
+We will set up user accounts for use by the indexer and frontend.  Assuming you have set up your environment variables in accordance with the env_vars.sh.example.
+
+Run:
+
+  $ sh createUsers.sql.sh
+
+Run the resulting commands in your SQL terminal.
+
 ### Test your JavaScript Postgres Connection
 
 Run the following:

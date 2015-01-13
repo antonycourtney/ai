@@ -35,7 +35,11 @@ def make_header_dict(headers):
 def process_address_headers(rawAddrs):
     ret=[]
     for rawAddr in rawAddrs:
-        addrTuples = rfc822.AddressList(rawAddr).addresslist
+        # We sometimes get address line with embedded CRLF sequences back from IMAP.
+        # For better or worse, Python's RFC822 address parser gives bad results (malformed email addrs) for these, so
+        # let's strip them out first
+        betterStr=rawAddr.translate(None, '\r\n')
+        addrTuples = rfc822.AddressList(betterStr).addresslist
         addrRecs = [{ 'parsedRealName': decode_str(parsedRealName)[0:127],
                       'parsedEmailAddress': parsedEmailAddress}
                         for (parsedRealName,parsedEmailAddress) in addrTuples ]
