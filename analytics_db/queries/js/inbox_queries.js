@@ -500,15 +500,20 @@ var dbDateRange = (ctx) => `
   FROM ${messages_view(ctx)}`;
 
 // final date condition just for testing during dev
+// ...but we need it to ensure mxTrailingN has had
+// as chance to accumulate enough data!
 // TODO: remove or make parametric!
 var dbCalendar = (ctx) => `
   SELECT ct.*
   FROM calendar_table ct,
       (${dbDateRange(ctx)}) dbDateRange
   WHERE ct.dt >= dbDateRange.mindate
-  AND ct.dt <= dbDateRange.maxdate
-  AND ct.dt >= DATE('2014-07-01')`;
+  AND ct.dt <= dbDateRange.maxdate`;
 
+/*
+ * count of messages exchanged per day (and for trailing N days for a few choices of N)
+ * for every correspondent on every calendar day
+ */
 var messagesExchangedFullSeries = (ctx) => `
   WITH
     MessagesExchangedPerDay AS
@@ -534,17 +539,53 @@ var messagesExchangedFullSeries = (ctx) => `
          order by cd.dt rows 6 preceding) as mxTrailing7,
         sum(COALESCE(mx.messagesExchanged,0)) over
         (partition by cd.correspondentId
-         order by cd.dt rows 29 preceding) as mxTrailing30
+         order by cd.dt rows 29 preceding) as mxTrailing30,
+        sum(COALESCE(mx.messagesExchanged,0)) over
+        (partition by cd.correspondentId          
+         order by cd.dt rows 89 preceding) as mxTrailing90,
+        sum(COALESCE(mx.messagesExchanged,0)) over        
+        (partition by cd.correspondentId
+         order by cd.dt rows 364 preceding) as mxTrailing365
   FROM CorrespondentDates cd left outer join MessagesExchangedPerDay mx ON
-    cd.dt = mx.dt AND cd.correspondentId = mx.correspondentId AND cd.correspondentName=mx.correspondentName`;
+    cd.dt = mx.dt AND cd.correspondentId = mx.correspondentId AND cd.correspondentName=mx.correspondentName
+  ORDER BY dt desc,correspondentId,mxTrailing90 desc`;
+
+/*
+ * FIX FIX FIX
+ *
+ * This was an attempt to determine a "historical maximum rank", i.e. what was the maximum rank that
+ * this correspondent ever had.
+ * Unfortunately this suffers from bad initialization transients:  If we look at trailing metrics we 
+ * shouldn't really start looking back N days until N days past start of the archive.  And we shouldn't
+ * collect these metrics for individual correspondents until the first message exchange...
+ *
+ * A somewhat simpler approach is historicalRank in maxMXHistorical, which just takes the historical
+ * maxMXTrailing90 for all corespondents and ranks those.  This is probably good enough.   
+ */
 
 var rankedMXSeries = (ctx) => `
-  select fs.dt,fs.correspondentId,fs.correspondentName,fs.messagesExchanged,fs.mxAverage7,fs.mxTrailing7,fs.mxTrailing30,
-      rank() over
-      (partition by dt
-       order by mxTrailing30 
-      ) as dailyRank
+  select fs.dt,fs.correspondentId,fs.correspondentName,fs.messagesExchanged,fs.mxAverage7,fs.mxTrailing7,fs.mxTrailing30,fs.mxTrailing90,fs.mxTrailing365,
+      (case when dt < DATE('2006-01-01') then null
+       else  
+        rank() over
+        (partition by dt
+         order by mxTrailing90 desc
+        ) 
+       end) as dailyRank
   from (${messagesExchangedFullSeries(ctx)}) fs`;
+
+/* maximum historical values for mxTrailing7, mxTrailing30 and top (min) historical rank */
+var maxMXHistorical = (ctx) => `
+  select rms.correspondentId,rms.correspondentName,
+  max(rms.mxTrailing7) as maxMXTrailing7,
+  max(rms.mxTrailing30) as maxMXTrailing30,
+  max(rms.mxTrailing30) as maxMXTrailing90,
+  rank() over (order by max(rms.mxTrailing30) desc) as historicalRank,
+  min(rms.dailyRank) as topDailyRank
+  from (${rankedMXSeries(ctx)}) rms
+  group by correspondentId,correspondentName
+  order by maxMXTrailing30 desc
+  `;
 
 // top ranked correspondents from MX series:
 var topRankedMXSeries = (ctx) => `
@@ -553,12 +594,12 @@ var topRankedMXSeries = (ctx) => `
   TopCorrespondents AS
   (select DISTINCT correspondentId
    from RankedFullSeries
-   where dailyRank > 1275
+   where dailyRank < 3
   )
   SELECT rfs.*
   FROM RankedFullSeries rfs,TopCorrespondents tc
   WHERE rfs.correspondentId = tc.correspondentId
-  ORDER BY correspondentId,dt,dailyRank desc`;
+  ORDER BY dt,dailyRank,correspondentId`;
 
 /* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
  * extract function to get week numbers, which are based on ISO's week numbering, 
@@ -637,3 +678,5 @@ module.exports.dbCalendar = dbCalendar;
 module.exports.messagesExchangedFullSeries = messagesExchangedFullSeries;
 module.exports.topRankedMXSeries = topRankedMXSeries;
 module.exports.correspondentHistoricalRecvSentRatio = correspondentHistoricalRecvSentRatio;
+module.exports.maxMXHistorical = maxMXHistorical;
+module.exports.rankedMXSeries = rankedMXSeries;

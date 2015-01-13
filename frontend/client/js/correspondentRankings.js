@@ -27,12 +27,6 @@ function renderChart(queryRes) {
   var chartRows = queryRes.result.rows;
   console.log("chartRows: ", chartRows);
 
-  var BASERANK = 1270;
-  function mapRank(v) {
-    var x = (v >= BASERANK) ? (v - BASERANK + 5) : 0;
-    return x;
-  }
-
   // map from correspondent name to time series
   var seriesMap = {};
   chartRows.map(function (row) {
@@ -42,16 +36,12 @@ function renderChart(queryRes) {
         cSeries = [];
         seriesMap[cName] = cSeries;
     }
-    var rankVal = mapRank(row.dailyrank);
-    cSeries.push({cName: cName, date: row.dt, rank: rankVal});
+    cSeries.push({cName: cName, date: row.dt, mx: row.mxtrailing7});
   });
 
   var plotSeries = _.values(seriesMap);
 
   console.log("plotSeries: ", plotSeries);
-
-  function getXDataValue(d) { return d.dt; }
-  function getYDataValue(d) { return d.messageCount; }
 
   var xScale     = new Plottable.Scale.Time();
   var yScale     = new Plottable.Scale.Linear();
@@ -69,7 +59,7 @@ function renderChart(queryRes) {
     return new Plottable.Plot.Line(xScale, yScale)
                       .addDataset(cSeries)
                       .project("x", "date", xScale)
-                      .project("y", "rank", yScale)
+                      .project("y", "mx", yScale)
                       .project("stroke", colorScale.scale(cSeries[0].cName))
                       .project("stroke-width", 1);    
   });
