@@ -69,6 +69,7 @@ app.get('/', function(req, res){
 app.get('/home', sitePages.getHomePage);
 app.get('/correspondent/:correspondentName', sitePages.getCorrespondentPage);
 app.get('/correspondents', sitePages.getAllCorrespondentsPage);
+app.get('/correspondentRankings', sitePages.getCorrespondentRankingsPage);
 
 // Logout the user, then redirect to the home page.
 app.get('/logout', function(req, res) {
