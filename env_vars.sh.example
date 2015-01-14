@@ -20,6 +20,8 @@ declare -x AWS_S3_BUCKET="<s3 bucket name - e.g. glenmistro-ia-dev-DevID >"
 declare -x GOOGLE_CLIENT_ID="<google web app client ID>"
 declare -x GOOGLE_CLIENT_SECRET="<google web app client secret>"
 
+declare -x SECRET_KEY_BASE="<secret key for session cookie encryption. Random string>"
+
 declare -x PG_DB="<Postgres db name>"
 declare -x PG_INSTANCE="<Postgres instance hostname - e.g. localhost>"
 declare -x PG_PORT="<Postgres instance port # - e.g. 5432>"
