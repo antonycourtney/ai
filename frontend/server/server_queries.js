@@ -104,12 +104,21 @@ function getQuery(req,responseHandler) {
                     pgutils.qpg(conString,pgutils.mkQuerySequence(rebuildDerivedTables(ctx, userRealName, userEmailAddrs))).then(function (queryRes) {
 
                         console.log("Rebuilt derived tables, got: ", queryRes);
-                        req.session.derivedTables = true;
 
+                        // We've created the derived tables, so no need to check for them again this session
+                        req.session.derivedTables = true;
+    
                         // Now that we've created the derived tables, go ahead with the original query
                         return getQueryWithDerivedTables(req, responseHandler);
                     });
+                } else {
+                    
+                    // We've checked for the derived tables presence and found them, record this and go ahead with the original query
+                    req.session.derivedTables = true;
+
+                    return getQueryWithDerivedTables(req, responseHandler);
                 }
+
             });
 
         } else {
