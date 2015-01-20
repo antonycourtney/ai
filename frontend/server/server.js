@@ -75,6 +75,7 @@ app.get('/correspondentRankings', sitePages.getCorrespondentRankingsPage);
 app.get('/logout', function(req, res) {
   req.flash('info', 'Logged out');
   console.log("logout, req.flash('info'): ", req.flash('info'), "req.flash('error'): ", req.flash('error'));
+  req.session.derivedTables = null;
   req.logout();
   res.render('index', {
     errorMessages: req.flash('error'),
