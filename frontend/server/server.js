@@ -19,6 +19,7 @@ var serverQueries    = require('./server_queries.js');
 var auth             = require('./auth.js');
 var indexer          = require('./indexer.js');
 var sitePages        = require('./site_pages.js');
+var models           = require('./models.js');
 
 // Set up the session cookies
 app.use(session({
@@ -46,8 +47,14 @@ app.use(flash());
 // Set up auth (NB: Important that this is run after the express session setup above)
 auth.setup(app);
 
+// Set up the models
+models.setup(app);
+
 // Set up indexing
 indexer.setup(app);
+
+// Set up server_queries
+serverQueries.setup(app);
 
 // For now -- to allow us to serve HTML files from ./public without enumerating a route for each one:
 

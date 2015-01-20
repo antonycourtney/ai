@@ -209,9 +209,6 @@ module.exports.setup = function(app) {
 
   console.log("index setup");
 
-  // Set up the models
-  models.setup(app);
-
   // GmailSync status
   // Stored in the db
   // indexed by user unique id
