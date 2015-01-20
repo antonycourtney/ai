@@ -21,16 +21,7 @@ var userEmailAddrs = process.env.TEST_USER_ADDRS.split(',');
 var userRealName = process.env.TEST_USER_REAL_NAME;
 assert(userRealName,"TEST_USER_REAL_NAME env var must be defined");
 
-var queries = ['vacuum',
-    queries.rebuildCorrespondentTables(ctx,userRealName,userEmailAddrs),
-    queries.createCIDMessagesView(ctx), 
-    queries.createCIDMessagesRecipients(ctx),
-    queries.createDirectToUserMessages(ctx,userRealName),
-    queries.createFromUserMessagesRecips(ctx,userRealName),
-    'vacuum; analyze'
-];
-
-var queryPromise = pgutils.qpg(conString,pgutils.mkQuerySequence(queries));
+var queryPromise = pgutils.qpg(conString,pgutils.mkQuerySequence(queries.rebuildDerivedTables(ctx, userRealName, userEmailAddrs)));
 
 queryPromise.then(function (state) {
     var resultRows = state.results.map(function (res) { return res.rows; } );

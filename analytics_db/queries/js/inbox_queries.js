@@ -280,7 +280,6 @@ var rankedNamePairs = (ctx,addrs) => `
 var userNameMappings = function (name,addrs) {
   var mkRow = (ea) => `select '${ea}' as emailAddress,'${name}' as correspondentName`;
 
-  debugger;
   var rows = addrs.map(mkRow);
 
   var litTable = rows.join('\nunion all\n');
@@ -430,6 +429,25 @@ var createFromUserMessagesRecips = (ctx,name) => `
   select *
   from TargetMessagesRecipients
   order by received desc`;
+
+
+/*
+ * Group together all the queries used to create the derived tables in an array
+ * This can then be used in a query of the form:
+ * var queryPromise = pgutils.qpg(conString,pgutils.mkQuerySequence(rebuildDerivedTables(ctx, userRealName, userEmailAddrs)));
+ */
+var rebuildDerivedTables = (ctx, userRealName, userEmailAddrs) => [
+    'vacuum',
+    rebuildCorrespondentTables(ctx,userRealName,userEmailAddrs),
+    createCIDMessagesView(ctx), 
+    createCIDMessagesRecipients(ctx),
+    createDirectToUserMessages(ctx,userRealName),
+    createFromUserMessagesRecips(ctx,userRealName),
+    'vacuum; analyze'
+  ];
+
+var checkDerivedTables = (ctx) => "select count(*) from pg_table_def where tablename = '${cidMessages(ctx)}';"
+
 
 /*
  * Number of messages per week sent and received with a given
@@ -620,6 +638,8 @@ module.exports.createCIDMessagesView = createCIDMessagesView;
 module.exports.createCIDMessagesRecipients = createCIDMessagesRecipients;
 module.exports.createDirectToUserMessages = createDirectToUserMessages;
 module.exports.createFromUserMessagesRecips = createFromUserMessagesRecips;
+module.exports.rebuildDerivedTables = rebuildDerivedTables;
+module.exports.checkDerivedTables = checkDerivedTables;
 module.exports.messagesExchangedWithCorrespondentPerDay = messagesExchangedWithCorrespondentPerDay;
 module.exports.messagesExchangedWithCorrespondentPerWeek = messagesExchangedWithCorrespondentPerWeek;
 module.exports.messagesExchangedWithCorrespondentPerMonth = messagesExchangedWithCorrespondentPerMonth;
