@@ -68,8 +68,9 @@ function evalQuery(queryName, queryParams) {
         data: queryParams
     }));
 
-
-    return promise.then(mapResultTypes);
+    return promise.then(mapResultTypes).fail(function(err) {
+        console.log("Got error: ", err);
+    });
 }
 
 /* get a key for looking up query in the store */
