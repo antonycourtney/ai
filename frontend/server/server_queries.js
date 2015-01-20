@@ -7,8 +7,10 @@
 
 var _ = require('lodash');
 var pg = require('pg');
+var pgutils = require('../../analytics_db/pgutils');
 var queries = require('../../analytics_db/build/js/inbox_queries');
 var Q = require('q');
+var models = require('./models.js');
 
 var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
 
@@ -75,9 +77,56 @@ function getQuery(req,responseHandler) {
         return;
     }
 
+    var checkDerivedTables = queries['checkDerivedTables'];
+    var rebuildDerivedTables = queries['rebuildDerivedTables'];
+
+    var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
+    var ctx = queries.queryContext({user_id: req.user.id});
+
+    // Get the user's real name and all email addresses
+    var userRealName = req.user.attributes['real_name'];
+    var idPromise = models.Identity.where({user_id: req.user.id}).fetchAll().then(function (identities) {
+
+        var userEmailAddrs = identities.models.map(function(value, index, arr) { return value.attributes['email']; });
+
+        // Check if we need to create the derived tables. If so, we do so and record this fact in the user session
+        if (!req.session.derivedTables) {
+
+            console.log("Checking for derived tables");
+            runInboxQuery(req.user,checkDerivedTables,req.query).then(function (queryRes) {
+
+                console.log("Checked for derived tables, got: ", queryRes);
+
+                // If the derived table wasn't found, recreate them all
+                if (queryRes.rows[0]['count'] == '0') {
+
+                    console.log("Rebuilding derived tables");
+                    pgutils.qpg(conString,pgutils.mkQuerySequence(rebuildDerivedTables(ctx, userRealName, userEmailAddrs))).then(function (queryRes) {
+
+                        console.log("Rebuilt derived tables, got: ", queryRes);
+                        req.session.derivedTables = true;
+
+                        // Now that we've created the derived tables, go ahead with the original query
+                        return getQueryWithDerivedTables(req, responseHandler);
+                    });
+                }
+            });
+
+        } else {
+            // We don't need to create the derived tables, so just go ahead with the requested query
+            return getQueryWithDerivedTables(req, responseHandler);
+        }
+
+    });
+    return;
+
+}
+
+function getQueryWithDerivedTables(req, responseHandler)
+{
     var queryName = req.params.queryName;
 
-    console.log("getQuery: queryName: ", queryName, "req.query: ", req.query);
+    console.log("getQueryWithDerivedTables: queryName: ", queryName, "req.query: ", req.query);
 
     var queryTemplate = queries[queryName];
 
@@ -93,6 +142,8 @@ function getQuery(req,responseHandler) {
         responseHandler.json(queryRes);
     },function (err) {
         console.log("Error executing RedShift query:", err);
+        responseHandler.status(500).json({error: "Error executing Redshift query: " + err});
+
     });
 }
 
