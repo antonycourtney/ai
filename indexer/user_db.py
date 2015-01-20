@@ -39,3 +39,7 @@ class UserDb:
   def log_download_failure(self, userId, messageId, except_msg, log_time):
     log_insert_query = "insert into download_failures values (%s,%s,%s,%s)"
     return self.run_insert_query(log_insert_query,(userId,messageId,except_msg,log_time))
+
+  def set_create_table_time(self, userId, create_time):
+    create_table_update_query = "update users set created_base_tables=%s where id=%s"
+    return self.run_insert_query(create_table_update_query, (create_time, userId))

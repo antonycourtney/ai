@@ -616,3 +616,8 @@ class GmailIMAPCollector:
             print "creating views for user_id: ", user_id
             cur.execute(create_view)
             conn.commit()
+
+        # Now we want to record that we did this in the frontend Postgres DB if it hasn't already been recorded
+        users = self.user_db.get_user(user_id)
+        if not(users[0]['created_base_tables']):
+            self.user_db.set_create_table_time(user_id, datetime.datetime.now())
