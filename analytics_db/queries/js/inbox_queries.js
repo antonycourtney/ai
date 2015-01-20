@@ -446,7 +446,7 @@ var rebuildDerivedTables = (ctx, userRealName, userEmailAddrs) => [
     'vacuum; analyze'
   ];
 
-var checkDerivedTables = (ctx) => "select count(*) from pg_table_def where tablename = '${cidMessages(ctx)}';"
+var checkDerivedTables = (ctx) => `select count(*) from pg_table_def where tablename = '${cidMessages(ctx).toLowerCase()}'`;
 
 
 /*
