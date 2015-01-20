@@ -11,6 +11,7 @@ var pgutils = require('../../analytics_db/pgutils');
 var queries = require('../../analytics_db/build/js/inbox_queries');
 var Q = require('q');
 var models = require('./models.js');
+var moment = require('moment');
 
 var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
 
@@ -77,40 +78,32 @@ function getQuery(req,responseHandler) {
         return;
     }
 
-    var checkDerivedTables = queries['checkDerivedTables'];
-    var rebuildDerivedTables = queries['rebuildDerivedTables'];
-
     var conString = process.env.AWS_REDSHIFT_FRONTEND_STRING;
-    var ctx = queries.queryContext({user_id: req.user.id});
-
-    // Get the user's real name and all email addresses
-    var userRealName = req.user.attributes['real_name'];
     var idPromise = models.Identity.where({user_id: req.user.id}).fetchAll().then(function (identities) {
-
-        var userEmailAddrs = identities.models.map(function(value, index, arr) { return value.attributes['email']; });
 
         // Check if we need to create the derived tables. If so, we do so and record this fact in the user session
         if (!req.session.derivedTables) {
 
             console.log("Checking for derived tables");
+
+            var checkDerivedTables = queries['checkDerivedTables'];
             runInboxQuery(req.user,checkDerivedTables,req.query).then(function (queryRes) {
 
                 console.log("Checked for derived tables, got: ", queryRes);
 
-                // If the derived table wasn't found, recreate them all
+                // If the derived table wasn't found, rebuild them all
                 if (queryRes.rows[0]['count'] == '0') {
 
                     console.log("Rebuilding derived tables");
-                    pgutils.qpg(conString,pgutils.mkQuerySequence(rebuildDerivedTables(ctx, userRealName, userEmailAddrs))).then(function (queryRes) {
 
-                        console.log("Rebuilt derived tables, got: ", queryRes);
-
+                    rebuildDerivedTables(req.user, identities).then(function(queryRes) {
                         // We've created the derived tables, so no need to check for them again this session
                         req.session.derivedTables = true;
-    
+        
                         // Now that we've created the derived tables, go ahead with the original query
                         return getQueryWithDerivedTables(req, responseHandler);
                     });
+
                 } else {
                     
                     // We've checked for the derived tables presence and found them, record this and go ahead with the original query
@@ -156,4 +149,52 @@ function getQueryWithDerivedTables(req, responseHandler)
     });
 }
 
+function rebuildDerivedTables(user, identities)
+{
+    var ctx = queries.queryContext({user_id: user.id});
+    var userRealName = user.attributes['real_name'];
+    var userEmailAddrs = identities.models.map(function(value, index, arr) { return value.attributes['email']; });
+    var rebuildDerivedTablesQuery = queries['rebuildDerivedTables'];
+
+    var rebuildPromise = pgutils.qpg(conString,pgutils.mkQuerySequence(rebuildDerivedTablesQuery(ctx, userRealName, userEmailAddrs))).then(function (queryRes) {
+
+        console.log("updated derived tables, got: ", queryRes);
+
+        user.attributes.updated_derived_tables = new Date().toISOString();
+        user.save();
+
+    });
+
+    return rebuildPromise;
+}
+
+function checkRebuildDerivedTables() {
+    console.log("checkRebuildDerivedTables");
+
+    // Find all derived tables which haven't been refreshed for more than 60 minutes
+    models.User
+    .query(function(qb) {
+        qb.where('updated_derived_tables', '<', moment().subtract(60, 'minutes').toISOString())
+        .orWhereNull('updated_derived_tables')
+    })
+    .fetchAll({ withRelated: 'identities' })
+    .then(function(all_users) {
+        all_users.each(function(user) {
+            rebuildDerivedTables(user, user.related('identities'));
+        });
+    });
+}
+
+
 module.exports.getQuery = getQuery;
+
+module.exports.setup = function(app) {
+
+  console.log("server_queries setup");
+
+  // Wake up every minute to check on refreshing our derived tables
+  setInterval(checkRebuildDerivedTables, 60000);
+
+};
+
+
