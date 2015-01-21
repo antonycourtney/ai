@@ -336,17 +336,20 @@ class GmailIMAPCollector:
         # Get a map of all message_ids. We do this once per run as it can pull a lot of data from Google IMAP
         #
         gmail_id_map = self.get_gmail_message_id_map(self.last_msg_uid) 
-        num_total_messages = len(gmail_id_map)
-        print "Got all gmail ids. length: ", num_total_messages
+        print "Number of gmail ids received: ", len(gmail_id_map)
 
         # Read the message Ids we have already processed
         redshiftReader = readers.RedshiftReader(self.args, self.user_info)
         messageIds = redshiftReader.read_message_ids()
+        num_saved_messages = len(messageIds)
+        print "Number of saved message ids: ", num_saved_messages
 
         # Get a list of all the missing UIDs
         missing_uids = self.get_missing_uids(gmail_id_map, messageIds)
         num_missing_uids = len(missing_uids)
         print "Number of missing UIDs: ", num_missing_uids
+
+        num_total_messages = num_saved_messages + num_missing_uids
 
         while (num_missing_uids > 0):
 
@@ -535,6 +538,7 @@ class GmailIMAPCollector:
         return uids_list
 
     def sendProgressMessage(self, num_total_messages, num_missing_uids, last_msg_uid):
+        print "sendProgressMessage: ", num_total_messages, num_missing_uids, last_msg_uid
         
         # We don't send progress messages if we're not using Rabbit
         if self.usingRabbit:
