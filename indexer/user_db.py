@@ -32,6 +32,14 @@ class UserDb:
     user_query = "select * from users where id = %s"
     return self.run_query(user_query,(userId,))
 
+  def remove_user(self, userId):
+    user_query = "BEGIN; \
+                  delete from gmail_syncs where user_id = %s; \
+                  delete from identities where user_id = %s; \
+                  delete from users where id = %s; \
+                  COMMIT"
+    return self.run_insert_query(user_query,(userId,userId, userId))
+
   def get_identities(self, userId):
     ids_query = "select * from identities where id = %s"
     return self.run_query(ids_query,(userId,))
