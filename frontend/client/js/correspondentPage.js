@@ -33,7 +33,18 @@ function renderChart(queryRes) {
   var messagesSent = chartRows.map(function (r) { return {dt: r.dt, messageCount: r.messagessent, label: "Messages Sent" }; });
   var messagesReceived = chartRows.map(function (r) { return {dt: r.dt, messageCount: r.messagesreceived, label: "Messages Received" }; });
 
+  /*
+   * workaround for Plottable performance issue with auto-width and zooming:
+   * see: https://github.com/palantir/plottable/issues/1284 for details
+   * Used to project "width" property of stacked bar chart
+   */
+  var t0 = chartRows[0].dt;
+  var tN = chartRows[chartRows.length - 1].dt;
+  var stepSize = (tN.getTime() - t0.getTime()) / chartRows.length;
 
+  console.log("t0: ", t0);
+  console.log("tN: ", tN);
+  console.log("stepSize: ", stepSize);
 
   function getXDataValue(d) { return d.dt; }
   function getYDataValue(d) { return d.messageCount; }
@@ -54,6 +65,7 @@ function renderChart(queryRes) {
     .project("x", "dt", xScale)
     .project("y", "messageCount", yScale)
     .project("fill", function(d){return d.label}, colorScale)
+    .project("width", function(){ return xScale.scale(stepSize)-xScale.scale(0); })
     .addDataset(messagesSent)
     .addDataset(messagesReceived);
   var plots = [plot];
