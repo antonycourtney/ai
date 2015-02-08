@@ -15,51 +15,20 @@ var moment = require('moment');
 // Flux stuff:
 
 var Fluxxor = require('fluxxor');
+
 var constants = require('./constants.js');
-var QueryStore = require('./queryStore.js');
 var actions = require('./actions.js');
+var stores = require('./stores.js');
+
 var queryClient = require('./queryClient.js');
 
 var dataDictionary = require('./data_dictionary.js');
 var components = require('./components.js');
 
-var IndexerStatusPanel = React.createClass({
-    render: function() {
-        var status = this.props.indexerStatus;
-
-        var fmtMessagesIndexed = status.messagesIndexed.toLocaleString();
-        var fmtTotalMessages = status.totalMessages.toLocaleString();
-    
-        var pct = 0;
-        if (status.totalMessages) {
-            var pct = Math.round(status.messagesIndexed / status.totalMessages * 100);
-        }
-        var d = status.lastCompleted;
-        var dateCompletedStr = d.toLocaleDateString() + " " + d.toLocaleTimeString();
-
-        // need this to set width of progress bar:
-        var styleMap = { width: pct + "%"}
-        return (
-          <div className="panel panel-default">
-            <div className="panel-heading">
-              Indexing Status
-            </div>
-            <div className="panel-body">
-              <div className="progress">
-                <div className="progress-bar" role="progressbar" aria-valuenow="{pct}" aria-valuemin="0" aria-valuemax="100" style={styleMap}>{pct}%</div>
-              </div>
-              <div>Analytic Inbox has indexed <strong>{fmtMessagesIndexed}</strong> of your <strong>{fmtTotalMessages}</strong> email messages (<strong>{pct}%</strong>).</div>
-              <div>Indexer Status: <strong>{status.statusMessage}</strong></div>
-              <div>Last Completed: <strong>{dateCompletedStr}</strong></div>
-            </div>
-          </div>            
-        );
-    }
-});
-
-
 var FluxMixin = Fluxxor.FluxMixin(React),
     StoreWatchMixin = Fluxxor.StoreWatchMixin;
+
+var isp = require('./indexerStatusPanel.js');
 
 var HomeDashboard = React.createClass({
     mixins: [FluxMixin, StoreWatchMixin("QueryStore")],    
@@ -87,7 +56,7 @@ var HomeDashboard = React.createClass({
         return (
             <div className="row">
                 <div className="col-md-2">
-                    <IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
+                    <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
                 </div>            
                 <div className="col-md-10">
                     <components.QueryResultsPanel panelHeading="Your Top Correspondents (Window: Past 1 Year)" 
@@ -108,35 +77,45 @@ var HomeDashboard = React.createClass({
 
 });
 
-/*
- * fetch and update indexerStatus
- */
-function fetchIndexerStatus(dashboard) {
+var BaseDashboard = React.createClass({
 
-    var statusUrl = "/index/status";
-    var hp = Q($.ajax({
-        url: statusUrl
-    }));
+    mixins: [FluxMixin, StoreWatchMixin("StatusStore")],
 
-    hp.then(function (data) {
-        // console.log("Got indexer status:", data);
-        data.lastCompleted = new Date(data.lastCompleted);  // de-serialize Date value
-        dashboard.setState({ indexerStatus: data });
-        if (data.messagesIndexed < data.totalMessages || data.totalMessages === 0) {
-            window.setTimeout(function () { fetchIndexerStatus(dashboard) }, 2000);
+    getStateFromFlux: function() {
+        var store = this.getFlux().store("StatusStore");
+
+        return {
+            indexerStatus: store.status
+        };
+    },
+
+    render: function() {
+
+        if (this.state.indexerStatus.lastCompleted == null) {
+            return (
+                <div className="row">
+                    <div className="col-md-2">
+                        <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
+                    </div>            
+                    <div className="col-md-10">
+                        <h1> Waiting for indexed data </h1>
+                    </div>
+                </div>
+            );
         } else {
-            window.setTimeout(function () { fetchIndexerStatus(dashboard) }, 60000);
+            var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
+
+            React.render(
+                <HomeDashboard flux={this.props.flux} startDate={this.props.startDate} />,
+                document.getElementById('main-region')
+            );
         }
-    }).catch(function (e) {
-        console.error("caught unhandled promise exception: ", e.stack, e);
-    });
-}
+    },
+
+});
 
 function main() {
     console.log("dataDictionary: ", dataDictionary);
-    var stores = {
-        QueryStore: new QueryStore()
-    };
 
     var flux = new Fluxxor.Flux(stores, actions);
 
@@ -146,14 +125,14 @@ function main() {
         }
     });
 
-    var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
-
-    var homeDashboard = React.renderComponent(
-        <HomeDashboard flux={flux} startDate={startDate}/>,
+    var baseDashboard = React.render(
+        <BaseDashboard flux={flux} />,
         document.getElementById('main-region')
     );
 
-    fetchIndexerStatus(homeDashboard);
+    // Kick off getting status for the logged in user
+    flux.actions.loadStatus();
+
 }
 
 main();
