@@ -11,7 +11,7 @@ var constants = require('./constants.js');
 var StatusStore = Fluxxor.createStore({
 
   initialize: function() {
-    console.log("[StatusStore] initialize")
+    // console.log("[StatusStore] initialize")
 
     this.loading = false;
     this.error = null;
@@ -25,7 +25,7 @@ var StatusStore = Fluxxor.createStore({
   },
 
   onLoadStatus: function() {
-    console.log("[StatusStore] onLoadStatus")
+    // console.log("[StatusStore] onLoadStatus")
 
     this.loading = true;
     this.emit("change");
@@ -33,7 +33,7 @@ var StatusStore = Fluxxor.createStore({
   },
 
   onLoadStatusSuccess: function(payload) {
-    console.log("[StatusStore] onLoadStatusSuccess")
+    // console.log("[StatusStore] onLoadStatusSuccess")
 
     this.loading = false;
     this.status = payload;
@@ -43,7 +43,7 @@ var StatusStore = Fluxxor.createStore({
   },
 
   onLoadStatusFail: function(payload) {
-    console.log("[StatusStore] onLoadStatusFail")
+    // console.log("[StatusStore] onLoadStatusFail")
 
     this.loading = false;
     this.error = payload.error;

@@ -6,24 +6,12 @@
 
 'use strict';
 
-var _ = require('lodash');
 var React = require('react');
 var Q = require('q');
-var $ = require('jquery');
-var moment = require('moment');
 
 // Flux stuff:
 
 var Fluxxor = require('fluxxor');
-
-var constants = require('./constants.js');
-var actions = require('./actions.js');
-var stores = require('./stores.js');
-
-var queryClient = require('./queryClient.js');
-
-var dataDictionary = require('./data_dictionary.js');
-var components = require('./components.js');
 
 var FluxMixin = Fluxxor.FluxMixin(React),
     StoreWatchMixin = Fluxxor.StoreWatchMixin;

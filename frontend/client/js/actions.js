@@ -28,7 +28,7 @@ var actions = {
 
     loadStatus: function() {
 
-        console.log("[actions] loadStatus")
+        // console.log("[actions] loadStatus")
 
         // Send the action that says we're starting
         this.dispatch(constants.LOAD_STATUS);
@@ -37,13 +37,13 @@ var actions = {
 
         statusClient.getStatus().then(
             function (data) {
-                console.log("[loadStatus] then: ", data);
+                // console.log("[loadStatus] then: ", data);
 
                 // de-serialize Date value
                 data.lastCompleted = new Date(data.lastCompleted);
 
-                // Fetch the data again in 2 seconds
-                window.setTimeout(function () { this.flux.actions.loadStatus() }.bind(this), 2000);
+                // Fetch the data again in 5 seconds
+                window.setTimeout(function () { this.flux.actions.loadStatus() }.bind(this), 5000);
 
                 // Send the load status success action
                 this.dispatch(constants.LOAD_STATUS_SUCCESS, data);
@@ -54,8 +54,8 @@ var actions = {
                 // Send the load status failure action
                 console.log("[loadStatus] error: ", error);
 
-                // Fetch the data again in 2 seconds
-                window.setTimeout(function () { this.flux.actions.loadStatus() }.bind(this), 2000);
+                // Fetch the data again in 30 seconds
+                window.setTimeout(function () { this.flux.actions.loadStatus() }.bind(this), 30000);
 
                 this.dispatch(constants.LOAD_STATUS_FAIL, error);
 

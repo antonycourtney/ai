@@ -11,7 +11,7 @@ var $ = require('jquery');
 
 function getStatus() {
 
-    console.log("[getStatus]");
+    // console.log("[getStatus]");
 
     // Kick off the process of fetching the data
     var statusUrl = "/index/status";
