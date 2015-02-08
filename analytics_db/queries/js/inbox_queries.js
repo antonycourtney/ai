@@ -624,9 +624,12 @@ var topRankedMXSeries = (ctx) => `
   ORDER BY dt,dailyRank,correspondentId`;
 
 // date used for determining current correspondent rank:
-var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
+var startDate_1y = moment().subtract(1,'years').format("YYYY-MM-DD");
 
-
+var topCorrespondents_1y = (ctx) => `
+  select *
+  from (${topCorrespondents(ctx,{start_date: startDate_1y})}) x
+`;
 
 /* simple count of all messages sent and received with a given correspondent */
 var epochDate='1980-01-01';
@@ -655,7 +658,7 @@ var corrAllStats = (ctx) => `
               else csfl.lastSent
          end as lastContact         
   from (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxh,
-    (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxc,
+    (${correspondentMessagesExchangedSinceDate(ctx,startDate_1y)}) mxc,
     (${correspondentHistoricalRecvSentRatio(ctx)}) mxr,
     (${correspondentReceivedFirstLast(ctx)}) crfl,
     (${correspondentSentFirstLast(ctx)}) csfl,
@@ -750,3 +753,4 @@ module.exports.correspondentHistoricalRecvSentRatio = correspondentHistoricalRec
 module.exports.maxMXHistorical = maxMXHistorical;
 module.exports.rankedMXSeries = rankedMXSeries;
 module.exports.corrAllStats = corrAllStats;
+module.exports.topCorrespondents_1y = topCorrespondents_1y;
