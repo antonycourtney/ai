@@ -7,7 +7,7 @@
 'use strict';
 
 var _ = require('lodash');
-var React = require('react');
+var React = require('react/addons');
 var Q = require('q');
 var $ = require('jquery');
 var moment = require('moment');
@@ -31,20 +31,15 @@ var FluxMixin = Fluxxor.FluxMixin(React),
 var isp = require('./indexerStatusPanel.js');
 
 var HomeDashboard = React.createClass({
-    mixins: [FluxMixin, StoreWatchMixin("QueryStore")],    
-
-    getInitialState: function() {
-        return {
-            indexerStatus: { messagesIndexed: 0, totalMessages: 0, statusMessage: "Waiting for update", 
-                             lastCompleted: new Date() }
-         };
-    },
+    mixins: [FluxMixin, StoreWatchMixin("QueryStore", "StatusStore")],
 
     getStateFromFlux: function() {
-        var store = this.getFlux().store("QueryStore");
+        var queryStore = this.getFlux().store("QueryStore");
+        var statusStore = this.getFlux().store("StatusStore");
 
         return {
-            queryResults: store.queryResults
+            queryResults: queryStore.queryResults,
+            indexerStatus: statusStore.status
         };
     },
 
@@ -53,15 +48,30 @@ var HomeDashboard = React.createClass({
     },
 
     render: function() {
-        return (
-            <div className="row">
-                <div className="col-md-2">
-                    <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
-                </div>            
+        var statusPanel =
+            <div className="col-md-2">
+                <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
+            </div>;
+
+        var mainPanel;
+
+        if (this.state.indexerStatus.lastCompleted == null) {
+            mainPanel =
+                <div className="col-md-10">
+                    <h1> Waiting for indexed data! </h1>
+                </div>;
+        } else {
+            mainPanel = 
                 <div className="col-md-10">
                     <components.QueryResultsPanel panelHeading="Your Top Correspondents (Window: Past 1 Year)" 
                         queryResult={this.getQueryResult('topCorrespondents', this.getQueryParams() )} />
-                </div>
+                </div>;
+        }
+
+        return (
+            <div className="row">
+                {statusPanel}
+                {mainPanel}
             </div>
             );
     },
@@ -77,47 +87,19 @@ var HomeDashboard = React.createClass({
 
 });
 
-var BaseDashboard = React.createClass({
-
-    mixins: [FluxMixin, StoreWatchMixin("StatusStore")],
-
-    getStateFromFlux: function() {
-        var store = this.getFlux().store("StatusStore");
-
-        return {
-            indexerStatus: store.status
-        };
-    },
-
-    render: function() {
-
-        if (this.state.indexerStatus.lastCompleted == null) {
-            return (
-                <div className="row">
-                    <div className="col-md-2">
-                        <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
-                    </div>            
-                    <div className="col-md-10">
-                        <h1> Waiting for indexed data </h1>
-                    </div>
-                </div>
-            );
-        } else {
-            var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
-
-            React.render(
-                <HomeDashboard flux={this.props.flux} startDate={this.props.startDate} />,
-                document.getElementById('main-region')
-            );
-        }
-    },
-
-});
-
 function main() {
     console.log("dataDictionary: ", dataDictionary);
 
     var flux = new Fluxxor.Flux(stores, actions);
+
+    // We should replace this when we update fluxxor using the approach outlined in the commit to Fluxxor here:
+    // https://github.com/BinaryMuse/fluxxor/commit/fa3ca9fd3cba259a4e3d75bbf3549ee9dd9c381b
+    var oldDispatch = flux.dispatcher.dispatch.bind(flux.dispatcher);
+    flux.dispatcher.dispatch = function(action) {
+      React.addons.batchedUpdates(function() {
+        oldDispatch(action);
+      });
+    };
 
     flux.on("dispatch", function(type, payload) {
         if (console && console.log) {
@@ -125,8 +107,10 @@ function main() {
         }
     });
 
-    var baseDashboard = React.render(
-        <BaseDashboard flux={flux} />,
+    var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
+
+    var homeDashboard = React.render(
+        <HomeDashboard flux={flux} startDate={startDate} />,
         document.getElementById('main-region')
     );
 
