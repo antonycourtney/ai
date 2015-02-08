@@ -23,6 +23,13 @@ function findDups(key,table) {
     return q2;
 }
 
+var tu_fromSorted = (ctx) => `
+  select *
+  from (${queries.fromAddressNamePairs(ctx)}) np
+  where emailAddress like '%killian%'
+  order by emailAddress`;
+
+
 var tu_EmailAddrs = process.env.TEST_USER_ADDRS.split(',');
 var tu_RealName = process.env.TEST_USER_REAL_NAME;
 
@@ -31,7 +38,7 @@ var tu_RealName = process.env.TEST_USER_REAL_NAME;
 var tu_UserRecips = (ctx) => queries.userRecipients(ctx,tu_EmailAddrs);
 var tu_BestCorrespondentNames = (ctx) => queries.bestCorrespondentNames(ctx,tu_RealName,tu_EmailAddrs);
 var tu_CorrespondentEmails = (ctx) => queries.correspondentEmailsQuery(ctx,tu_RealName,tu_EmailAddrs);
-var tu_RankedNamePairs = (ctx) => queries.rankedNamePairs(tu_EmailAddrs);
+var tu_RankedNamePairs = (ctx) => queries.rankedNamePairs(ctx,tu_EmailAddrs);
 var tu_DistinctNamesList = (ctx) => queries.distinctNamesList(ctx,tu_RealName,tu_EmailAddrs);
 var tu_CorrNames = (ctx) => queries.correspondentNamesQuery(ctx,tu_RealName,tu_EmailAddrs);
 var tu_Dups = (ctx) => findDups(['emailAddress'],'( ' + tu_CorrespondentEmails(ctx) + ' )');
@@ -45,3 +52,4 @@ module.exports.tu_BestCorrespondentNames = tu_BestCorrespondentNames;
 module.exports.tu_CorrespondentEmails = tu_CorrespondentEmails;
 module.exports.tu_RankedNamePairs = tu_RankedNamePairs;
 module.exports.tu_MPW = tu_MPW;
+module.exports.tu_fromSorted = tu_fromSorted;
