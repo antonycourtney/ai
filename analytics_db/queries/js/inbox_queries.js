@@ -3,6 +3,7 @@
  */
 'use strict';
 var _ = require('lodash');
+var moment = require('moment');
 
 /* list of string as a quoted list: */
 function quotedList(vals) {
@@ -85,21 +86,23 @@ var correspondentHistoricalRecvSentRatio = (ctx) => `
   select cmx.*,
     (case cmx.messagesSent 
      when 0 then NULL
-     else cmx.messagesReceived / cmx.messagesSent
+     else CAST(cmx.messagesReceived AS REAL) / cmx.messagesSent
      end) as recvSentRatio
   from (${correspondentMessagesExchangedSinceDate(ctx,'1980-01-01')}) cmx
   order by recvSentRatio desc`;
 
-var correspondentLastReceived = (ctx) => `
+var correspondentReceivedFirstLast = (ctx) => `
     select FromCorrespondentId,
            FromCorrespondentName,
+           min(received) as FirstReceived,
            max(received) as LastReceived
     from ${directToUserMessages(ctx)} cm
     group by FromCorrespondentId,FromCorrespondentName`;
 
-var correspondentLastSent = (ctx) => `
+var correspondentSentFirstLast = (ctx) => `
     select RecipientCorrespondentID, 
            RecipientCorrespondentName,
+           min(received) as FirstSent,
            max(received) as LastSent
     from ${fromUserCIDMessagesRecipients(ctx)} fu
     group by RecipientCorrespondentID,RecipientCorrespondentName`;
@@ -111,8 +114,8 @@ var topCorrespondents = (ctx,qp) => `
               else lms.lastSent
          end as lastContact
   from (${correspondentMessagesExchangedSinceDate(ctx,qp.start_date)}) mx,
-    (${correspondentLastReceived(ctx)}) lmr,
-    (${correspondentLastSent(ctx)}) lms
+    (${correspondentReceivedFirstLast(ctx)}) lmr,
+    (${correspondentSentFirstLast(ctx)}) lms
   where messagesSent > 5  
   and mx.correspondentId = lmr.fromCorrespondentId
   and mx.correspondentId = lms.recipientCorrespondentId
@@ -597,13 +600,14 @@ var maxMXHistorical = (ctx) => `
   select rms.correspondentId,rms.correspondentName,
   max(rms.mxTrailing7) as maxMXTrailing7,
   max(rms.mxTrailing30) as maxMXTrailing30,
-  max(rms.mxTrailing30) as maxMXTrailing90,
-  rank() over (order by max(rms.mxTrailing30) desc) as historicalRank,
+  max(rms.mxTrailing90) as maxMXTrailing90,
+  rank() over (order by max(rms.mxTrailing90) desc) as historicalRank,
   min(rms.dailyRank) as topDailyRank
   from (${rankedMXSeries(ctx)}) rms
   group by correspondentId,correspondentName
-  order by maxMXTrailing30 desc
+  order by maxMXTrailing90 desc
   `;
+
 
 // top ranked correspondents from MX series:
 var topRankedMXSeries = (ctx) => `
@@ -618,6 +622,51 @@ var topRankedMXSeries = (ctx) => `
   FROM RankedFullSeries rfs,TopCorrespondents tc
   WHERE rfs.correspondentId = tc.correspondentId
   ORDER BY dt,dailyRank,correspondentId`;
+
+// date used for determining current correspondent rank:
+var startDate = moment().subtract(1,'years').format("YYYY-MM-DD");
+
+
+
+/* simple count of all messages sent and received with a given correspondent */
+var epochDate='1980-01-01';
+var corrAllStats = (ctx) => `
+  select mxh.correspondentId, 
+    mxh.correspondentName,
+         mxc.messagesSent as sent_1y,
+         mxc.messagesReceived as received_1y,
+         mxc.messagesExchanged as exchanged_1y,
+         mxh.messagesSent as totalSent, 
+         mxh.messagesReceived as totalReceived, 
+         mxh.messagesExchanged as totalExchanged,
+         mmx.maxMXTrailing30,
+         mmx.maxMXTrailing90,
+         mmx.historicalRank,
+         mmx.topDailyRank,
+         mxr.recvSentRatio,
+         csfl.firstSent,
+         crfl.firstReceived,
+         case when csfl.firstSent < crfl.firstReceived then csfl.firstSent
+              else crfl.firstReceived
+         end as firstContact,
+         csfl.lastSent,
+         crfl.lastReceived,
+         case when crfl.lastReceived > csfl.lastSent then crfl.lastReceived
+              else csfl.lastSent
+         end as lastContact         
+  from (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxh,
+    (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxc,
+    (${correspondentHistoricalRecvSentRatio(ctx)}) mxr,
+    (${correspondentReceivedFirstLast(ctx)}) crfl,
+    (${correspondentSentFirstLast(ctx)}) csfl,
+    (${maxMXHistorical(ctx)}) mmx
+  where 1=1
+  and mxh.correspondentId = mxc.correspondentId
+  and mxh.correspondentId = mxr.correspondentId
+  and mxh.correspondentId = crfl.FromCorrespondentId
+  and mxh.correspondentId = csfl.RecipientCorrespondentId
+  and mxh.correspondentId = mmx.correspondentId
+  order by maxMXTrailing90 desc`;
 
 /* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
  * extract function to get week numbers, which are based on ISO's week numbering, 
@@ -700,3 +749,4 @@ module.exports.topRankedMXSeries = topRankedMXSeries;
 module.exports.correspondentHistoricalRecvSentRatio = correspondentHistoricalRecvSentRatio;
 module.exports.maxMXHistorical = maxMXHistorical;
 module.exports.rankedMXSeries = rankedMXSeries;
+module.exports.corrAllStats = corrAllStats;
