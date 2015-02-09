@@ -53,20 +53,11 @@ var HomeDashboard = React.createClass({
                 <isp.IndexerStatusPanel indexerStatus={this.state.indexerStatus} />
             </div>;
 
-        var mainPanel;
-
-        if (this.state.indexerStatus.lastCompleted == null) {
-            mainPanel =
-                <div className="col-md-10">
-                    <h1> Waiting for indexed data! </h1>
-                </div>;
-        } else {
-            mainPanel = 
+        var mainPanel = 
                 <div className="col-md-10">
                     <components.QueryResultsPanel panelHeading="Your Top Correspondents (Window: Past 1 Year)" 
                         queryResult={this.getQueryResult('topCorrespondents', this.getQueryParams() )} />
                 </div>;
-        }
 
         return (
             <div className="row">
