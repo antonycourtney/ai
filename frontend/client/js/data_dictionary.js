@@ -79,7 +79,10 @@ function buildDataDictionary() {
 
     dictionary.getFormatter = function(cid) {
         var entry = this.columns[cid];
-        var fmt = function (v) { return v.toString(); };
+        var fmt = function (v) { 
+            var s = (v===null) ? "" : v.toString(); 
+            return s;
+        }
         if (entry!==undefined) {
             if (entry.formatter !== undefined) {
                 fmt = entry.formatter;

@@ -52,7 +52,7 @@ function renderChart(queryRes) {
   var title  = new Plottable.Component.TitleLabel("Correspondent Rankings", "horizontal" );
   var legend = new Plottable.Component.Legend(colorScale);
   legend.maxEntriesPerRow(1);
-  var yLabel = new Plottable.Component.Label("Rank", "left");
+  var yLabel = new Plottable.Component.Label("Messages Exchanged Per Week", "left");
   var xAxis  = new Plottable.Axis.Time(xScale, "bottom");
   var yAxis  = new Plottable.Axis.Numeric(yScale, "left");
   var lines  = new Plottable.Component.Gridlines(null, yScale);
@@ -106,10 +106,11 @@ var CorrRankingsPage = React.createClass({
     },
 
     render: function() {
-        var qres = this.getQueryResult('topRankedMXSeries');
-        if (qres) {
+        var tableRes = this.getQueryResult('corrAllStats');
+        var chartRes = this.getQueryResult('topRankedMXSeries');
+        if (chartRes) {
             try {
-                renderChart(qres);
+                renderChart(chartRes);
             } catch (e) {
                 console.error("*** Caught exception rendering rankings chart: ", e, e.stack);
             }
@@ -117,8 +118,8 @@ var CorrRankingsPage = React.createClass({
         return (
             <div className="row">
                 <div className="col-md-12">
-                    <components.QueryResultsPanel panelHeading={"Correspondent Historical Rankings"}
-                        queryResult={qres} 
+                    <components.QueryResultsPanel panelHeading={"All Correspondent Metrics"}
+                        queryResult={tableRes} 
                         />
                 </div>
             </div>
@@ -127,6 +128,7 @@ var CorrRankingsPage = React.createClass({
 
     componentDidMount: function() {
         var acts = this.getFlux().actions;
+        this.getFlux().actions.evalQuery('corrAllStats');
         this.getFlux().actions.evalQuery('topRankedMXSeries');
     }
 

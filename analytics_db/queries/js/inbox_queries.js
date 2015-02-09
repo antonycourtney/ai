@@ -77,7 +77,9 @@ var correspondentMessagesExchangedSinceDate = (ctx,startDate) => `
          correspondentName,
          sum(messagesSent) as messagesSent,
          sum(messagesReceived) as messagesReceived,
-         sum(MessagesExchanged) as messagesExchanged
+         sum(MessagesExchanged) as messagesExchanged,
+        rank() over
+        (order by sum(messagesExchanged) desc) as mxRank         
   from (${messagesExchangedCountPerCorrespondentPerDay(ctx)})
   where dt >= DATE('${startDate}')
   group by correspondentId,correspondentName`;
@@ -625,10 +627,12 @@ var maxMXHistorical = (ctx) => `
 var topRankedMXSeries = (ctx) => `
   WITH RankedFullSeries AS
     (${rankedMXSeries(ctx)}),
+  mxc AS
+    (${correspondentMessagesExchangedSinceDate(ctx,startDate_1y)}),    
   TopCorrespondents AS
   (select DISTINCT correspondentId
-   from RankedFullSeries
-   where dailyRank < 3
+   from mxc
+   where mxc.mxRank < 6
   )
   SELECT rfs.*
   FROM RankedFullSeries rfs,TopCorrespondents tc
@@ -692,7 +696,8 @@ FROM mpw
 ORDER BY dt`;
 
 var corrAllStats = (ctx) => `
-  WITH mxc AS
+  WITH 
+    mxc AS
       (${correspondentMessagesExchangedSinceDate(ctx,startDate_1y)}),
     mxr AS
       (${correspondentHistoricalRecvSentRatio(ctx)}),
@@ -706,6 +711,7 @@ var corrAllStats = (ctx) => `
          mxc.messagesSent as sent_1y,
          mxc.messagesReceived as received_1y,
          mxc.messagesExchanged as exchanged_1y,
+         mxc.mxRank as rank_1y,
          mxh.messagesSent as totalSent, 
          mxh.messagesReceived as totalReceived, 
          mxh.messagesExchanged as totalExchanged,

@@ -66,6 +66,8 @@ function groupRows(cids,qrows,colCount) {
 var QueryResultsPanel = React.createClass({
     renderResultsTable: function(queryResult) {
 
+        console.log("renderResultsTable: enter");
+
         var res;
         if (!queryResult) {
             res = <span>Loading...</span>;
@@ -104,10 +106,12 @@ var QueryResultsPanel = React.createClass({
                 });
                 var  bodyRows= _.flatten(htmlRowGroups, true);
             } else {
+                console.log("mapping rows:", queryResult.result.rows);
                 var bodyRows=queryResult.result.rows.map(function (rowData) { return mkRow(rowData); });
+                console.log("==> bodyRows: ", bodyRows);
             };
             res = 
-                (<table className="table table-condensed">
+                (<table className="table table-condensed query-result-table">
                     <thead>
                         <tr>{tableHeaders}</tr>
                     </thead>
@@ -116,11 +120,16 @@ var QueryResultsPanel = React.createClass({
                     </tbody>
                 </table>);
         }
+        console.log("renderResultsTable: done: ", tableHeaders, bodyRows);
         return res;
     },
 
     render: function() {
-        var table = this.renderResultsTable(this.props.queryResult);
+        try {
+            var table = this.renderResultsTable(this.props.queryResult);
+        } catch (e) {
+            console.error("*** Caught exception rendering query results: ", e, e.stack);            
+        }
         return (
           <div className="panel panel-default query-panel">
             <div className="panel-heading">
