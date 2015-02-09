@@ -2,6 +2,8 @@
  * Flux architecture actions for query evaluation
  *
  */
+'use strict';
+
 var constants = require('./constants.js');
 var queryClient = require('./queryClient.js');
 var statusClient = require('./statusClient.js');
@@ -40,7 +42,9 @@ var actions = {
                 // console.log("[loadStatus] then: ", data);
 
                 // de-serialize Date value
-                data.lastCompleted = new Date(data.lastCompleted);
+                if (data.lastCompleted != null) {
+                    data.lastCompleted = new Date(data.lastCompleted);
+                }
 
                 // Fetch the data again in 5 seconds
                 window.setTimeout(function () { this.flux.actions.loadStatus() }.bind(this), 5000);
