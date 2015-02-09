@@ -149,7 +149,7 @@ function listenForProgressMessages(){
                 // Figure out which user we're working with
                 var id = new models.Identity({provider: 'google', uid: progress["tenant_uid"]}).fetch().then(function (identity) {
                   if (identity) {
-                    gsync = new models.GmailSync({user_id: identity.attributes["user_id"]}).fetch().then(function(gsync){
+                    var gsync = new models.GmailSync({user_id: identity.attributes["user_id"]}).fetch().then(function(gsync){
                       if (!gsync) {
                         // Couldn't find a gsync record for this user - initialize a new one
                         gsync = new models.GmailSync({user_id:  identity.attributes["user_id"]});
