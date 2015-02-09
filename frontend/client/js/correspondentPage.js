@@ -137,7 +137,7 @@ var CorrPage = React.createClass({
       <div className="row">
         <div className="col-md-12">
           <components.QueryResultsPanel panelHeading={"Messages From " + this.props.correspondentName + " To You"}
-            queryResult={this.getQueryResult('directToUserMessagesFromCorrespondentName', this.getQueryParams())} />
+            queryResult={this.getQueryResult('directToUserMessagesFromCorrespondentNameGrouped', this.getQueryParams())} />
         </div>
       </div>
       );
@@ -146,7 +146,7 @@ var CorrPage = React.createClass({
   componentDidMount: function() {
     var acts = this.getFlux().actions;
     console.log("componentDidMount: actions: ", acts);
-    this.getFlux().actions.evalQuery('directToUserMessagesFromCorrespondentName', this.getQueryParams());
+    this.getFlux().actions.evalQuery('directToUserMessagesFromCorrespondentNameGrouped', this.getQueryParams());
     this.getFlux().actions.evalQuery('messagesExchangedWithCorrespondentPerWeek', this.getQueryParams());        
   }
 

@@ -29,6 +29,11 @@ var tu_fromSorted = (ctx) => `
   where emailAddress like '%killian%'
   order by emailAddress`;
 
+var test_corr_name='killian@killianmurphy.com';
+var tu_fromGrouped = (ctx) => `
+  select *
+  from ( ${queries.directToUserMessagesFromCorrespondentNameGrouped(ctx,{correspondent_name: test_corr_name})} ) x
+`;
 
 var tu_EmailAddrs = process.env.TEST_USER_ADDRS.split(',');
 var tu_RealName = process.env.TEST_USER_REAL_NAME;
@@ -53,3 +58,4 @@ module.exports.tu_CorrespondentEmails = tu_CorrespondentEmails;
 module.exports.tu_RankedNamePairs = tu_RankedNamePairs;
 module.exports.tu_MPW = tu_MPW;
 module.exports.tu_fromSorted = tu_fromSorted;
+module.exports.tu_fromGrouped = tu_fromGrouped;
