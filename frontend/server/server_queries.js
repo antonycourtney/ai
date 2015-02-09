@@ -193,8 +193,7 @@ module.exports.setup = function(app) {
   console.log("server_queries setup");
 
   // Wake up every minute to check on refreshing our derived tables
-  setInterval(checkRebuildDerivedTables, 60000);
+  // AC, 8Feb15: Turn off for now while we fix issues with derived tables....
+  // setInterval(checkRebuildDerivedTables, 60000);
 
 };
-
-

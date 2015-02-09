@@ -52,8 +52,8 @@ var descCols = {
         formatter: fmtFromNow
     },
     'received': {
-        displayName: 'Received',
-        formatter: fmtFromNow
+        displayName: 'Received'
+        // formatter: fmtFromNow
     }
 };
 

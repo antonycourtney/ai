@@ -128,10 +128,22 @@ var correspondentFromName = (ctx,nm) => `
   where cn.correspondentName='${nm}'`
 
 var directToUserMessagesFromCorrespondentName = (ctx,qp) => `
-select messageId,received,substring(subject,0,96) as subject
+select threadId,messageId,received,substring(subject,0,96) as subject
 from ${directToUserMessages(ctx)}
 where fromCorrespondentName='${qp.correspondent_name}'
 order by received desc`;
+
+var directToUserMessagesFromCorrespondentNameGrouped = (ctx,qp) => `
+select 
+  substring(min(subject),0,96) as subject,
+  max(received) as received,
+  count(*) as messageCount,
+  threadId
+from ${directToUserMessages(ctx)}
+where fromCorrespondentName='${qp.correspondent_name}'
+group by threadId
+order by received desc`;
+
 
 var allCorrespondents = (ctx) => `
 select cnms.correspondentId,correspondentName,emailAddress
@@ -754,3 +766,4 @@ module.exports.maxMXHistorical = maxMXHistorical;
 module.exports.rankedMXSeries = rankedMXSeries;
 module.exports.corrAllStats = corrAllStats;
 module.exports.topCorrespondents_1y = topCorrespondents_1y;
+module.exports.directToUserMessagesFromCorrespondentNameGrouped = directToUserMessagesFromCorrespondentNameGrouped;
