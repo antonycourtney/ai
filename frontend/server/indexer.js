@@ -6,6 +6,8 @@
 //      /index/gmail - kick off a job indexing gmail for the logged in user
 //
 
+'use strict';
+
 var amqp   = require('amqp');
 var models = require('./models.js');
 var moment = require('moment');
@@ -147,7 +149,7 @@ function listenForProgressMessages(){
                 // Figure out which user we're working with
                 var id = new models.Identity({provider: 'google', uid: progress["tenant_uid"]}).fetch().then(function (identity) {
                   if (identity) {
-                    gsync = new models.GmailSync({user_id: identity.attributes["user_id"]}).fetch().then(function(gsync){
+                    var gsync = new models.GmailSync({user_id: identity.attributes["user_id"]}).fetch().then(function(gsync){
                       if (!gsync) {
                         // Couldn't find a gsync record for this user - initialize a new one
                         gsync = new models.GmailSync({user_id:  identity.attributes["user_id"]});
@@ -177,12 +179,14 @@ function listenForProgressMessages(){
   );
 };
 
-function gsync_to_status(gsync) {
+function gsync_to_status(gsync, user) {
   return ({
       totalMessages: gsync.attributes.total_messages,
       messagesIndexed: gsync.attributes.messages_indexed,
       statusMessage: gsync.attributes.status_message,
-      lastCompleted: gsync.attributes.last_indexed
+      lastCompleted: gsync.attributes.last_indexed,
+      created_base_tables: user.attributes.created_base_tables,
+      updated_derived_tables: user.attributes.updated_derived_tables
     });
 }
 
@@ -222,7 +226,7 @@ module.exports.setup = function(app) {
       console.log("/index/status for user_id: ", req.user.id)
       var gsync = new models.GmailSync({user_id: req.user.id}).fetch().then(function (gsync) {
         if (gsync) {
-          resultHandler.json(gsync_to_status(gsync));
+          resultHandler.json(gsync_to_status(gsync, req.user));
         } else {
           new models.GmailSync(
             { user_id: req.user.id, 
@@ -231,7 +235,7 @@ module.exports.setup = function(app) {
               status_message: "Initializing",
               last_indexed: null
           }).save().then(function(gsync) {
-            resultHandler.json(gsync_to_status(gsync));
+            resultHandler.json(gsync_to_status(gsync, req.user));
           })
         }
       });

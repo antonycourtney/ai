@@ -16,6 +16,7 @@ var Fluxxor = require('fluxxor');
 var constants = require('./constants.js');
 var QueryStore = require('./queryStore.js');
 var actions = require('./actions.js');
+var stores = require('./stores.js');
 var queryClient = require('./queryClient.js');
 var dataDictionary = require('./data_dictionary.js');
 var components = require('./components.js');
@@ -132,10 +133,6 @@ var CorrRankingsPage = React.createClass({
 });
 
 function main() {
-
-    var stores = {
-        QueryStore: new QueryStore()
-    };
 
     var flux = new Fluxxor.Flux(stores, actions);
 

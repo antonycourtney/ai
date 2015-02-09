@@ -1,3 +1,12 @@
+/*
+ * models.js
+ *
+ * Models for use with the ORM
+ *
+ */
+
+'use strict';
+
 // Our Postgres database configuration
 var dbConfig = {
   client: 'pg',

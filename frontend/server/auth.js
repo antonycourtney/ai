@@ -1,3 +1,12 @@
+/*
+ * auth.js
+ *
+ * Authorization functions and callbacks for Google OAuth2
+ *
+ */
+
+'use strict';
+
 var moment           = require('moment');
 var models           = require('./models.js');
 
@@ -84,7 +93,7 @@ module.exports.setup = function(app) {
 	// the process by verifying the assertion.  If valid, the user will be
 	// logged in.  Otherwise, authentication has failed.
 	app.get('/auth/google_oauth2/callback', 
-		passport.authenticate('google', { successRedirect: '/home',
+		passport.authenticate('google', { successRedirect: '/waiting',
 		                                  successFlash: true,
 		                                  failureRedirect: '/',
 		                                  failureFlash: true

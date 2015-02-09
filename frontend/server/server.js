@@ -73,6 +73,7 @@ app.get('/', function(req, res){
   }
 });
 
+app.get('/waiting', sitePages.getWaitingPage);
 app.get('/home', sitePages.getHomePage);
 app.get('/correspondent/:correspondentName', sitePages.getCorrespondentPage);
 app.get('/correspondents', sitePages.getAllCorrespondentsPage);
