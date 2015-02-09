@@ -1,6 +1,7 @@
 // webpack.config.js
 module.exports = {
     entry: {
+        waiting: "./client/js/waiting.js",
         home: "./client/js/home.js",
         correspondentPage: "./client/js/correspondentPage.js",
         allCorrespondents: "./client/js/allCorrespondents.js",

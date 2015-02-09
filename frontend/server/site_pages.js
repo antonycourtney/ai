@@ -43,6 +43,29 @@ function renderSitePage( req, responseHandler, pageTemplate, scriptBaseName, pag
   }
 }
 
+function getWaitingPage(req, res) {
+  console.log("rendering /waiting, req.user: ", req.user, "req.flash('info'): ", req.flash('info'), "req.flash('error'): ", req.flash('error'));
+  
+  if (req.user) {
+
+    if ((req.user.attributes.created_base_tables != null) && (req.user.attributes.updated_derived_tables != null))
+    {
+      res.redirect('/home');
+    } else {
+      var templateParams = {
+        errorMessages: req.flash('error').join(', '),
+        infoMessages: req.flash('info').join(', ')
+      };
+
+      res.render('waiting', templateParams );
+    }
+  
+  } else {
+    req.flash('error', 'Please log into Google')
+    res.redirect('/');
+  }
+}
+
 function getHomePage(req, res) {
   return renderSitePage(req,res,'partials/onediv','home');
 }
@@ -66,6 +89,7 @@ function getCorrespondentPage(req, res) {
   return renderSitePage(req,res,'partials/correspondent','correspondentPage', pageParams);
 }
 
+module.exports.getWaitingPage =  getWaitingPage;
 module.exports.getHomePage = getHomePage;
 module.exports.getCorrespondentPage = getCorrespondentPage;
 module.exports.getAllCorrespondentsPage = getAllCorrespondentsPage;
