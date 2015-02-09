@@ -3,6 +3,7 @@ module.exports = {
     entry: {
         home: "./client/js/home.js",
         correspondentPage: "./client/js/correspondentPage.js",
+        owedEmail: "./client/js/owedEmail.js",
         allCorrespondents: "./client/js/allCorrespondents.js",
         correspondentRankings: "./client/js/correspondentRankings.js"
     },

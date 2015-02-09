@@ -94,16 +94,16 @@ var correspondentHistoricalRecvSentRatio = (ctx) => `
 var correspondentReceivedFirstLast = (ctx) => `
     select FromCorrespondentId,
            FromCorrespondentName,
-           min(received) as FirstReceived,
-           max(received) as LastReceived
+           min(coalesce(received,date)) as FirstReceived,
+           max(coalesce(received,date)) as LastReceived
     from ${directToUserMessages(ctx)} cm
     group by FromCorrespondentId,FromCorrespondentName`;
 
 var correspondentSentFirstLast = (ctx) => `
     select RecipientCorrespondentID, 
            RecipientCorrespondentName,
-           min(received) as FirstSent,
-           max(received) as LastSent
+           min(coalesce(received,date)) as FirstSent,
+           max(coalesce(received,date)) as LastSent
     from ${fromUserCIDMessagesRecipients(ctx)} fu
     group by RecipientCorrespondentID,RecipientCorrespondentName`;
 
@@ -136,7 +136,7 @@ order by received desc`;
 var directToUserMessagesFromCorrespondentNameGrouped = (ctx,qp) => `
 select 
   substring(min(subject),0,96) as subject,
-  max(received) as received,
+  max(coalesce(received,date)) as received,
   count(*) as messageCount,
   threadId
 from ${directToUserMessages(ctx)}
@@ -638,6 +638,8 @@ var topRankedMXSeries = (ctx) => `
 // date used for determining current correspondent rank:
 var startDate_1y = moment().subtract(1,'years').format("YYYY-MM-DD");
 
+var today_dateStr = moment().format("YYYY-MM-DD");
+
 var topCorrespondents_1y = (ctx) => `
   select *
   from (${topCorrespondents(ctx,{start_date: startDate_1y})}) x
@@ -645,43 +647,12 @@ var topCorrespondents_1y = (ctx) => `
 
 /* simple count of all messages sent and received with a given correspondent */
 var epochDate='1980-01-01';
-var corrAllStats = (ctx) => `
-  select mxh.correspondentId, 
-    mxh.correspondentName,
-         mxc.messagesSent as sent_1y,
-         mxc.messagesReceived as received_1y,
-         mxc.messagesExchanged as exchanged_1y,
-         mxh.messagesSent as totalSent, 
-         mxh.messagesReceived as totalReceived, 
-         mxh.messagesExchanged as totalExchanged,
-         mmx.maxMXTrailing30,
-         mmx.maxMXTrailing90,
-         mmx.historicalRank,
-         mmx.topDailyRank,
-         mxr.recvSentRatio,
-         csfl.firstSent,
-         crfl.firstReceived,
-         case when csfl.firstSent < crfl.firstReceived then csfl.firstSent
-              else crfl.firstReceived
-         end as firstContact,
-         csfl.lastSent,
-         crfl.lastReceived,
-         case when crfl.lastReceived > csfl.lastSent then crfl.lastReceived
-              else csfl.lastSent
-         end as lastContact         
-  from (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxh,
-    (${correspondentMessagesExchangedSinceDate(ctx,startDate_1y)}) mxc,
-    (${correspondentHistoricalRecvSentRatio(ctx)}) mxr,
-    (${correspondentReceivedFirstLast(ctx)}) crfl,
-    (${correspondentSentFirstLast(ctx)}) csfl,
-    (${maxMXHistorical(ctx)}) mmx
-  where 1=1
-  and mxh.correspondentId = mxc.correspondentId
-  and mxh.correspondentId = mxr.correspondentId
-  and mxh.correspondentId = crfl.FromCorrespondentId
-  and mxh.correspondentId = csfl.RecipientCorrespondentId
-  and mxh.correspondentId = mmx.correspondentId
-  order by maxMXTrailing90 desc`;
+
+var mxHistorical = (ctx) => `
+  select *
+  from (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxh
+  order by correspondentId`;
+
 
 /* Note that we use ordinal week numbers (own) because the calendar table uses PGSQL's
  * extract function to get week numbers, which are based on ISO's week numbering, 
@@ -720,6 +691,69 @@ SELECT mpw.*
 FROM mpw
 ORDER BY dt`;
 
+var corrAllStats = (ctx) => `
+  WITH mxc AS
+      (${correspondentMessagesExchangedSinceDate(ctx,startDate_1y)}),
+    mxr AS
+      (${correspondentHistoricalRecvSentRatio(ctx)}),
+    crfl AS
+      (${correspondentReceivedFirstLast(ctx)}),
+    csfl AS
+      (${correspondentSentFirstLast(ctx)}),
+    mmx AS (${maxMXHistorical(ctx)})
+  select mxh.correspondentId, 
+         mxh.correspondentName,
+         mxc.messagesSent as sent_1y,
+         mxc.messagesReceived as received_1y,
+         mxc.messagesExchanged as exchanged_1y,
+         mxh.messagesSent as totalSent, 
+         mxh.messagesReceived as totalReceived, 
+         mxh.messagesExchanged as totalExchanged,
+         mmx.maxMXTrailing30,
+         mmx.maxMXTrailing90,
+         mmx.historicalRank,
+         mmx.topDailyRank,
+         mxr.recvSentRatio,
+         csfl.firstSent,
+         crfl.firstReceived,
+         case when csfl.firstSent < crfl.firstReceived then csfl.firstSent
+              else crfl.firstReceived
+         end as firstContact,
+         csfl.lastSent,
+         crfl.lastReceived,
+         case when crfl.lastReceived > csfl.lastSent then crfl.lastReceived
+              else csfl.lastSent
+         end as lastContact,
+         crfl.lastReceived > csfl.lastSent as owedMail,
+         case when crfl.lastReceived > csfl.lastSent 
+              then datediff(day,lastReceived,'${today_dateStr}') 
+              else 0 
+              end as daysOwed          
+  from (${correspondentMessagesExchangedSinceDate(ctx,epochDate)}) mxh
+        left outer join mxc on mxh.correspondentId = mxc.correspondentId
+        left outer join mxr on mxh.correspondentId = mxr.correspondentId
+        left outer join crfl on mxh.correspondentId = crfl.FromCorrespondentId
+        left outer join csfl on mxh.correspondentId = csfl.RecipientCorrespondentId
+        left outer join mmx on mxh.correspondentId = mmx.correspondentId
+  order by maxMXTrailing90 desc`;
+
+
+/*
+ * TODO: There's a fair bit of calc that goes in to corrAllStats that we're totally dropping; we should
+ * probably trim this to avoid that rather than just hoping that the query optimizer will save us.
+ */
+var correspondentsOwedMailRaw = (ctx) => `
+  select correspondentName,maxMXTrailing90,lastSent,lastReceived,daysOwed
+  from
+    (${corrAllStats(ctx)}) cas
+  where
+    owedMail = true
+  and daysOwed < 180` 
+
+var correspondentsOwedMail = (ctx) => `
+  select correspondentName,lastSent,lastReceived
+  from (${correspondentsOwedMailRaw(ctx)}) x
+`;
 
 module.exports.queryContext = queryContext;
 module.exports.fromAddressNamePairs = fromAddressNamePairs;
@@ -767,3 +801,5 @@ module.exports.rankedMXSeries = rankedMXSeries;
 module.exports.corrAllStats = corrAllStats;
 module.exports.topCorrespondents_1y = topCorrespondents_1y;
 module.exports.directToUserMessagesFromCorrespondentNameGrouped = directToUserMessagesFromCorrespondentNameGrouped;
+module.exports.mxHistorical = mxHistorical;
+module.exports.correspondentsOwedMail = correspondentsOwedMail;

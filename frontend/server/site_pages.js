@@ -47,6 +47,10 @@ function getHomePage(req, res) {
   return renderSitePage(req,res,'partials/onediv','home');
 }
 
+function getOwedEmailPage(req, res) {
+  return renderSitePage(req,res,'partials/onediv','owedEmail');
+}
+
 function getAllCorrespondentsPage(req, res) {
   return renderSitePage(req,res,'partials/onediv','allCorrespondents');
 }
@@ -70,3 +74,4 @@ module.exports.getHomePage = getHomePage;
 module.exports.getCorrespondentPage = getCorrespondentPage;
 module.exports.getAllCorrespondentsPage = getAllCorrespondentsPage;
 module.exports.getCorrespondentRankingsPage = getCorrespondentRankingsPage;
+module.exports.getOwedEmailPage = getOwedEmailPage;
