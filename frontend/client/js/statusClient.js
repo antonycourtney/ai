@@ -5,6 +5,8 @@
  *
  */
 
+'use strict';
+
 var Q = require('q');
 var $ = require('jquery');
 

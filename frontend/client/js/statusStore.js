@@ -5,6 +5,8 @@
  * 
  */
 
+'use strict';
+
 var Fluxxor = require('fluxxor');
 var constants = require('./constants.js');
 

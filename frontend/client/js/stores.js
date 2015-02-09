@@ -5,6 +5,8 @@
  *
  */
 
+'use strict';
+
 var QueryStore = require('./queryStore.js');
 var StatusStore = require('./statusStore.js');
 

@@ -2,6 +2,8 @@
  * A Flux store for query results identified by query name
  */
 
+'use strict';
+
 var Fluxxor = require('fluxxor');
 var constants = require('./constants.js');
 
