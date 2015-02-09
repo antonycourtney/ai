@@ -761,6 +761,33 @@ var correspondentsOwedMail = (ctx) => `
   from (${correspondentsOwedMailRaw(ctx)}) x
 `;
 
+/*
+ * A first cut at lost touch:  Look at the biggest drops in historical rank relative to current rank.
+ *
+ * This is pretty good, but it may miss important folks whose rank grew in the year but we haven't
+ * been in touch with recently.  We should find some way to identify and blend those in.
+ *
+ * Maybe we take this same approach and look at drops based 90 day and 30 day cutoffs
+ *
+ */
+var lostTouch_raw = (ctx) => `
+  select correspondentName,
+         rank_1y as currentRank,
+         historicalRank,
+         (currentRank - historicalRank) as rankDrop,
+         lastSent,
+         dateDiff(day,lastSent,'${today_dateStr}') as lastSentDays,
+         lastReceived
+  from (${corrAllStats(ctx)}) cas`;
+
+var lostTouch = (ctx) => `
+  with ltr as
+    (${lostTouch_raw(ctx)})
+  select *
+  from ltr
+  where (rankDrop > 0 or rankDrop is null) and lastSentDays > 60
+  order by case when rankDrop is null then 1 else 0 end,rankDrop desc,historicalRank`;
+
 module.exports.queryContext = queryContext;
 module.exports.fromAddressNamePairs = fromAddressNamePairs;
 module.exports.rawMessagesCount = rawMessagesCount;
@@ -809,3 +836,4 @@ module.exports.topCorrespondents_1y = topCorrespondents_1y;
 module.exports.directToUserMessagesFromCorrespondentNameGrouped = directToUserMessagesFromCorrespondentNameGrouped;
 module.exports.mxHistorical = mxHistorical;
 module.exports.correspondentsOwedMail = correspondentsOwedMail;
+module.exports.lostTouch = lostTouch;

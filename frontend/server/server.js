@@ -80,6 +80,7 @@ app.get('/correspondents', sitePages.getAllCorrespondentsPage);
 app.get('/correspondentRankings', sitePages.getCorrespondentRankingsPage);
 
 app.get('/owedEmail', sitePages.getOwedEmailPage);
+app.get('/lostTouch', sitePages.getLostTouchPage);
 
 // Logout the user, then redirect to the home page.
 app.get('/logout', function(req, res) {

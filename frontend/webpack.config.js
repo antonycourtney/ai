@@ -5,6 +5,7 @@ module.exports = {
         home: "./client/js/home.js",
         correspondentPage: "./client/js/correspondentPage.js",
         owedEmail: "./client/js/owedEmail.js",
+        lostTouch: "./client/js/lostTouch.js",
         allCorrespondents: "./client/js/allCorrespondents.js",
         correspondentRankings: "./client/js/correspondentRankings.js"
     },

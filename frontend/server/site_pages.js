@@ -74,6 +74,10 @@ function getOwedEmailPage(req, res) {
   return renderSitePage(req,res,'partials/onediv','owedEmail');
 }
 
+function getLostTouchPage(req, res) {
+  return renderSitePage(req,res,'partials/onediv','lostTouch');
+}
+
 function getAllCorrespondentsPage(req, res) {
   return renderSitePage(req,res,'partials/onediv','allCorrespondents');
 }
@@ -99,3 +103,4 @@ module.exports.getCorrespondentPage = getCorrespondentPage;
 module.exports.getAllCorrespondentsPage = getAllCorrespondentsPage;
 module.exports.getCorrespondentRankingsPage = getCorrespondentRankingsPage;
 module.exports.getOwedEmailPage = getOwedEmailPage;
+module.exports.getLostTouchPage = getLostTouchPage;
