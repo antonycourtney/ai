@@ -1,4 +1,4 @@
-create table calendar_table as
+create table calendar_table diststyle all sortkey (dt) as
 select x.dt, 
       EXTRACT(YEAR FROM x.dt) as year,
       EXTRACT(quarter FROM x.dt) as quarter,
@@ -17,4 +17,5 @@ FROM (
         order by 1
         )
     where v < 25567
-) x
+) x;
+grant select on calendar_table to public;
