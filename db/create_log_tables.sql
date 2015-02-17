@@ -1,6 +1,6 @@
 -- log of download failures by user ID and message ID to enable debugging
 
-DROP table download_failures;
+DROP table IF EXISTS download_failures;
 
 CREATE TABLE download_failures (
   user_id integer,  -- link back to the users table
@@ -9,5 +9,3 @@ CREATE TABLE download_failures (
   log_time timestamp with time zone
 );
 
-ALTER TABLE download_failures
-  OWNER TO glenmistro;

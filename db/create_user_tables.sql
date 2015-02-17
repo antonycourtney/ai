@@ -1,6 +1,6 @@
 -- Table: users
 
-DROP TABLE users;
+DROP TABLE IF EXISTS users;
 
 CREATE TABLE users
 (
@@ -8,11 +8,8 @@ CREATE TABLE users
   real_name varchar(256)
 );
 
-ALTER TABLE users
-  OWNER TO glenmistro;
 
-
-DROP TABLE identities;
+DROP TABLE IF EXISTS identities;
 
 CREATE TABLE identities
 (
@@ -29,10 +26,8 @@ CREATE TABLE identities
   access_token varchar(256),
   expires_at timestamp with time zone
 );
-ALTER TABLE identities
-  OWNER TO glenmistro;
 
-DROP TABLE gmail_syncs;
+DROP TABLE IF EXISTS gmail_syncs;
 
 CREATE TABLE gmail_syncs
 (
@@ -46,5 +41,3 @@ CREATE TABLE gmail_syncs
   last_requested timestamp with time zone,
   last_msg_uid integer
 );
-ALTER TABLE gmail_syncs 
-  OWNER TO glenmistro;
