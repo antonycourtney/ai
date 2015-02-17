@@ -17,8 +17,17 @@ function queryContext(options) {
   return {user_id: options.user_id};
 };
 
-var messages_view = (ctx) => `messages_v_${ctx.user_id}`;
+var messages_view = (ctx) => `messages_v_${ctx.user_id}`
 var recipients_view = (ctx) => `recipients_v_${ctx.user_id}`;
+
+/*
+ * views of messages and recipients as of some literal timestamp
+ */
+var messages_view_asOf(ctx,tstamp) => 
+  `(select * from ${messages_view(ctx)} where createdat <= ${tstamp}` : ; 
+  
+var recipients_view_asOf(ctx,tstamp) => 
+  `select * from ${recipients_view(ctx)} where createdat <= ${tstamp}`; 
 
 /*
  * create the base views on the messages and recipients tables, and grant access to ai_frontend
@@ -159,7 +168,7 @@ order by correspondentName,emailAddress`;
 
 var lastFirstRE = '^([A-Z][a-z]*)\,[ ]?([A-Z][a-z]*)([ ][A-Z][\.]?)?$';
 
-var commaFromRealNames = (ctx) => `
+var commaFromRealNames = (ctx,asOf) => `
   SELECT DISTINCT m.fromRealName rnm,
   regexp_count(rnm,'${lastFirstRE}') as cnt,
   regexp_replace(rnm,'${lastFirstRE}','\\\\2\\\\3 \\\\1') as rep
