@@ -2,6 +2,7 @@
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
+import org.apache.spark.rdd._
 
 import com.databricks.examples.redshift.input.RedshiftInputFormat
 
@@ -60,6 +61,30 @@ object CSVTest {
     parts
   }
 
+  def emptyStr(s: String): Boolean = {
+    s==null || s.length==0
+  }
+
+  /*
+   * Given an email address and its corresponding name field,
+   * generate a canonical (lower case) form of the email
+   * address, paired with either the realNameField contents
+   * or the emailAddress if null / empty
+   */
+  def canonNamePair(emailAddr: String, realNameField: String): (String,String) = {
+    var canonEmail = emailAddr.toLowerCase
+    var corrName = if (emptyStr(realNameField)) emailAddr else realNameField
+    return (canonEmail,corrName)
+  }
+
+  def fromNameCounts(messages: RDD[Message]): RDD[((String,String),Int)] = {
+    val namePairs = messages
+      .map(m => (canonNamePair(m.fromEmailAddress,m.fromRealName),1))
+      .reduceByKey(_ + _)
+
+    namePairs
+  }
+
   def main(args: Array[String]) {
 
     val conf = new SparkConf().setAppName("CSV Test")
@@ -83,7 +108,8 @@ object CSVTest {
     val numRecords = records.count()
     println("Read " + numRecords + " messages.")
 
-
+    val fanp = fromNameCounts(messages)
+/*
     val addrCounts = messages
                       .map(m => (m.fromEmailAddress,1))
                       .reduceByKey(_ + _)
@@ -92,9 +118,8 @@ object CSVTest {
                         .map(item => item.swap)
                         .sortByKey(false,1)
                         .map(item => item.swap)
-
-
-    val recVals = sortedCounts.take(25)
+*/
+    val recVals = fanp.take(25)
 
     for (r <- recVals) {
       println(r.toString)
