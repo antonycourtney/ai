@@ -4,6 +4,10 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd._
 
+import org.apache.spark.sql._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
+
 import com.databricks.examples.redshift.input.RedshiftInputFormat
 
 import java.sql.Timestamp
@@ -71,24 +75,31 @@ object CSVTest {
    * address, paired with either the realNameField contents
    * or the emailAddress if null / empty
    */
-  def canonNamePair(emailAddr: String, realNameField: String): (String,String) = {
-    var canonEmail = emailAddr.toLowerCase
-    var corrName = if (emptyStr(realNameField)) emailAddr else realNameField
-    return (canonEmail,corrName)
-  }
+  
+  val canonStr = (s: String) => s.toLowerCase
 
-  def fromNameCounts(messages: RDD[Message]): RDD[((String,String),Int)] = {
-    val namePairs = messages
-      .map(m => (canonNamePair(m.fromEmailAddress,m.fromRealName),1))
-      .reduceByKey(_ + _)
+  val toCanonStr = udf(canonStr)
 
-    namePairs
+  val coalesceStr = (s1: String, s2: String) => if (emptyStr(s1)) s2 else s1 
+
+  val coalesceStrUDF = udf(coalesceStr)
+
+  def fromNameCounts(ms: DataFrame): DataFrame = {
+    val canonEmails = ms
+            .select(toCanonStr(ms("fromEmailAddress")).as("emailAddress"),
+                   coalesceStrUDF(ms("fromRealName"),ms("fromEmailAddress")).as("correspondentName")) 
+            .groupBy("emailAddress","correspondentName")
+            .count()
+            .sort("emailAddress","count")
+
+    return canonEmails
   }
 
   def main(args: Array[String]) {
 
     val conf = new SparkConf().setAppName("CSV Test")
     val sc = new SparkContext(conf)
+    val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
     //val psvFile = "/Users/antony/home/src/spark/CSVTest/messages.psv"
     val psvFile = "/Users/antony/Downloads/redshift-snap/messages_snap_021115_*"
@@ -99,8 +110,8 @@ object CSVTest {
       classOf[java.lang.Long],
       classOf[Array[String]])
 
-    val messages = records.map(p => p._2)
-                    .map(m => Message(m(0),m(1),parseTimestamp(m(2)),m(3),m(4),m(5),m(6),
+    val messagesRDD = records.map(p => p._2)
+                       .map(m => Message(m(0),m(1),parseTimestamp(m(2)),m(3),m(4),m(5),m(6),
                                       // sizeEstimate: kill it! m(7).toInt,
                                       parseTimestamp(m(8)),m(9),
                                       m(10).toInt,
@@ -108,7 +119,17 @@ object CSVTest {
     val numRecords = records.count()
     println("Read " + numRecords + " messages.")
 
-    val fanp = fromNameCounts(messages)
+    val messages = sqlContext.createDataFrame(messagesRDD)
+
+    // messagesDF.take(25).foreach(println)
+
+    //val canonEmails = messages.select(toCanonStr(messages("fromEmailAddress")).as("fromEmailCanon"))
+    val canonEmails = fromNameCounts(messages)
+
+    canonEmails.show()
+    // canonEmails.take(25).foreach(println)
+
+    // val fanp = fromNameCounts(messagesDF)
 /*
     val addrCounts = messages
                       .map(m => (m.fromEmailAddress,1))
@@ -119,11 +140,12 @@ object CSVTest {
                         .sortByKey(false,1)
                         .map(item => item.swap)
 */
+/*
     val recVals = fanp.take(25)
 
     for (r <- recVals) {
       println(r.toString)
     }
-
+*/
   }
 }
