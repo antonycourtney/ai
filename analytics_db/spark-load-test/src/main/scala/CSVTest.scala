@@ -32,6 +32,14 @@ case class Message(
     createdAt: Timestamp
   )
 
+case class Recipient(
+    messageId: String,
+    recipientRealName: String,
+    recipientEmailAddress: String,
+    recipientType: String,  // Hmmm, perhaps replace with case class
+    user_id: Int,
+    createdAt: Timestamp
+  )
 
 object CSVTest {
   val tldf = new ThreadLocal[SimpleDateFormat]
@@ -84,15 +92,27 @@ object CSVTest {
 
   val coalesceStrUDF = udf(coalesceStr)
 
-  def fromNameCounts(ms: DataFrame): DataFrame = {
-    val canonEmails = ms
-            .select(toCanonStr(ms("fromEmailAddress")).as("emailAddress"),
-                   coalesceStrUDF(ms("fromRealName"),ms("fromEmailAddress")).as("correspondentName")) 
+  // Good example of abstraction / reuse that is super painful in SQL:
+  def addrNameCounts(ms: DataFrame,addrColName: String, realColName: String): DataFrame = {
+    val addrNameCounts = ms
+            .select(toCanonStr(ms(addrColName)).as("emailAddress"),
+                   coalesceStrUDF(ms(realColName),ms("fromEmailAddress")).as("correspondentName")) 
             .groupBy("emailAddress","correspondentName")
             .count()
             .sort("emailAddress","count")
 
-    return canonEmails
+    return addrNameCounts    
+  }
+
+
+  def fromNameCounts(ms: DataFrame): DataFrame = {
+    addrNameCounts(ms,"fromEmailAddress","fromRealName")
+  }
+
+  def recipNameCounts(ms: DataFrame, rs: DataFrame): DataFrame = {
+    val jms = ms.join(rs,ms("messageId") === rs("messageId") )
+
+    addrNameCounts(jms,"recipientEmailAddress", "recipientRealName")
   }
 
   def main(args: Array[String]) {
@@ -114,19 +134,40 @@ object CSVTest {
                        .map(m => Message(m(0),m(1),parseTimestamp(m(2)),m(3),m(4),m(5),m(6),
                                       // sizeEstimate: kill it! m(7).toInt,
                                       parseTimestamp(m(8)),m(9),
-                                      m(10).toInt,
-                                      parseTimestamp(m(11)) ) )
+                                      user_id = m(10).toInt,
+                                      createdAt = parseTimestamp(m(11)) ) )
     val numRecords = records.count()
     println("Read " + numRecords + " messages.")
 
     val messages = sqlContext.createDataFrame(messagesRDD)
 
-    // messagesDF.take(25).foreach(println)
+    val recipsFile = "/Users/antony/Downloads/redshift-snap/recipients_snap_021115_*"
 
-    //val canonEmails = messages.select(toCanonStr(messages("fromEmailAddress")).as("fromEmailCanon"))
-    val canonEmails = fromNameCounts(messages)
+    val recipRecords = sc.newAPIHadoopFile(
+      recipsFile,
+      classOf[RedshiftInputFormat],
+      classOf[java.lang.Long],
+      classOf[Array[String]])
 
-    canonEmails.show()
+    println("Read " + recipRecords.count() + " recipient records")
+
+    var recipsRDD = recipRecords.map(p => p._2)
+            .map(r => Recipient(messageId = r(0), recipientRealName = r(1), recipientEmailAddress = r(2),
+                                recipientType = r(3),
+                                user_id = r(5).toInt,
+                                createdAt = parseTimestamp(r(6))))
+
+    var recipients = sqlContext.createDataFrame(recipsRDD)
+
+    val fromNamePairCounts = fromNameCounts(messages)
+
+    val recipNamePairCounts = recipNameCounts(messages,recipients)
+
+    fromNamePairCounts.show()
+
+    println("To names: ")
+    recipNamePairCounts.show()
+
     // canonEmails.take(25).foreach(println)
 
     // val fanp = fromNameCounts(messagesDF)
