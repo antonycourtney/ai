@@ -7,6 +7,7 @@ import org.apache.spark.rdd._
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
+import org.apache.spark.storage._
 
 import com.databricks.examples.redshift.input.RedshiftInputFormat
 
@@ -110,7 +111,7 @@ object CSVTest {
   }
 
   def recipNameCounts(ms: DataFrame, rs: DataFrame): DataFrame = {
-    val jms = ms.join(rs,ms("messageId") === rs("messageId") )
+    val jms = ms.join(rs,ms("messageId") === rs("messageId") ).persist(StorageLevel.OFF_HEAP)
 
     addrNameCounts(jms,"recipientEmailAddress", "recipientRealName")
   }
@@ -139,7 +140,7 @@ object CSVTest {
     val numRecords = records.count()
     println("Read " + numRecords + " messages.")
 
-    val messages = sqlContext.createDataFrame(messagesRDD)
+    val messages = sqlContext.createDataFrame(messagesRDD).persist(StorageLevel.OFF_HEAP)
 
     val recipsFile = "/Users/antony/Downloads/redshift-snap/recipients_snap_021115_*"
 
@@ -157,7 +158,7 @@ object CSVTest {
                                 user_id = r(5).toInt,
                                 createdAt = parseTimestamp(r(6))))
 
-    var recipients = sqlContext.createDataFrame(recipsRDD)
+    var recipients = sqlContext.createDataFrame(recipsRDD).persist(StorageLevel.OFF_HEAP)
 
     val fromNamePairCounts = fromNameCounts(messages)
 
@@ -168,7 +169,7 @@ object CSVTest {
     println("To names: ")
     recipNamePairCounts.show()
 
-    // canonEmails.take(25).foreach(println)
+    fromNamePairCounts.sample(false,0.01).take(100).foreach(println)
 
     // val fanp = fromNameCounts(messagesDF)
 /*
