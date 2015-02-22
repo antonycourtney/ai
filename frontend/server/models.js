@@ -13,9 +13,9 @@ var dbConfig = {
   connection: (process.env.DB_PORT ?  {
                                         host     : process.env.DB_PORT_5432_TCP_ADDR,
                                         port     : process.env.DB_PORT_5432_TCP_PORT,
-                                        user     : 'glenmistro',
-                                        password : '',
-                                        database : 'ai_production',
+                                        user     : process.env.PG_USER,
+                                        password : process.env.PG_PWD,
+                                        database : process.env.PG_DB
                                       } 
                 : process.env.PG_CONN_STRING )
 }

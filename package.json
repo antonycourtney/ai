@@ -5,6 +5,7 @@
     "type": "git",
     "url": "https://github.com/glenmistro/ai.git"
   },
+  "scripts": { "start": "node ~/frontend/server/server.js" },
   "dependencies": {
     "amqp": "^0.2.0",
     "body-parser": "^1.11.0",
