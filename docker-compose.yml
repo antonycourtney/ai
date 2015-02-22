@@ -1,0 +1,73 @@
+db:
+  image: killian/ai_pg
+  ports:
+    - "5432"
+
+mq:
+  image: dockerfile/rabbitmq
+  ports:
+    - "5672:5672"
+    - "15672:15672"
+
+frontend:
+  image: killian/frontend
+  ports:
+    - "9000:9000"
+  links:
+    - db
+    - mq
+  environment:
+    - AWS_REDSHIFT_DB
+    - AWS_REDSHIFT_INSTANCE
+    - AWS_REDSHIFT_PORT
+    - AWS_REDSHIFT_USER
+    - AWS_REDSHIFT_PWD
+    - AWS_REDSHIFT_CONN_STRING
+
+    - AWS_S3_BUCKET
+
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+
+    - TEST_USER_ADDRS
+    - TEST_USER_REAL_NAME
+
+    - PG_DB
+    - PG_INSTANCE
+    - PG_PORT
+    - PG_USER
+    - PG_PWD
+    - PG_CONN_STRING
+
+indexer:
+  image: killian/indexer
+  links:
+    - mq
+    - db
+  volumes:
+    - ./data/etl:/usr/src/app/data
+  environment:
+    - AWS_ACCESS_KEY
+    - AWS_SECRET_KEY
+
+    - AWS_REDSHIFT_DB
+    - AWS_REDSHIFT_INSTANCE
+    - AWS_REDSHIFT_PORT
+    - AWS_REDSHIFT_USER
+    - AWS_REDSHIFT_PWD
+    - AWS_REDSHIFT_CONN_STRING
+
+    - AWS_S3_BUCKET
+
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+
+    - TEST_USER_ADDRS
+    - TEST_USER_REAL_NAME
+
+    - PG_DB
+    - PG_INSTANCE
+    - PG_PORT
+    - PG_USER
+    - PG_PWD
+    - PG_CONN_STRING
